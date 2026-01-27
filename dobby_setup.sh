@@ -56,6 +56,11 @@ create_master_orders() {
 **Integration Type**: API-Led Architecture (System API / Process API / Experience API)
 **Priority**: High
 
+## Runtime Configuration
+
+**MuleSoft Runtime Version**: 4.8.0
+**Java Version**: 17
+
 ## Integration Overview
 
 Describe what this integration should accomplish:

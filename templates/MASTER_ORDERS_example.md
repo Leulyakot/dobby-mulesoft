@@ -8,6 +8,11 @@
 **Integration Type**: API-Led Architecture (System API + Process API + Experience API)
 **Priority**: High
 
+## Runtime Configuration
+
+**MuleSoft Runtime Version**: 4.8.0
+**Java Version**: 17
+
 ## Integration Overview
 
 Build a real-time customer synchronization integration that:
