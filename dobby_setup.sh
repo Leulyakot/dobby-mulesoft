@@ -60,6 +60,9 @@ create_master_orders() {
 
 **MuleSoft Runtime Version**: 4.8.0
 **Java Version**: 17
+**Maven Version**: 3.9.6
+**Mule Maven Plugin Version**: 4.3.0
+**MUnit Version**: 3.3.0
 
 ## Integration Overview
 
