@@ -147,6 +147,12 @@ copy_scripts() {
     cp "${SCRIPT_DIR}/dobby_loop.sh" "$DOBBY_HOME/"
     cp "${SCRIPT_DIR}/dobby_setup.sh" "$DOBBY_HOME/"
     cp "${SCRIPT_DIR}/dobby_monitor.sh" "$DOBBY_HOME/"
+    cp "${SCRIPT_DIR}/dobby_ui.sh" "$DOBBY_HOME/"
+    cp "${SCRIPT_DIR}/dobby_server.py" "$DOBBY_HOME/"
+
+    # Copy UI files
+    mkdir -p "${DOBBY_HOME}/ui"
+    cp "${SCRIPT_DIR}/ui/index.html" "${DOBBY_HOME}/ui/"
 
     # Copy templates if they exist
     if [[ -d "${SCRIPT_DIR}/templates" ]]; then
@@ -155,6 +161,7 @@ copy_scripts() {
 
     # Make scripts executable
     chmod +x "${DOBBY_HOME}/"*.sh
+    chmod +x "${DOBBY_HOME}/dobby_server.py"
 
     log_success "Scripts copied"
 }
@@ -216,6 +223,23 @@ source "${DOBBY_HOME}/dobby_monitor.sh"
 main "$@"
 MONITOR_CMD
     chmod +x "${BIN_DIR}/dobby-monitor"
+
+    # 'dobby-ui' command
+    cat > "${BIN_DIR}/dobby-ui" << 'UI_CMD'
+#!/usr/bin/env bash
+# Dobby UI - Web-based monitoring dashboard
+
+DOBBY_HOME="${HOME}/.dobby"
+
+if [[ ! -f "${DOBBY_HOME}/dobby_ui.sh" ]]; then
+    echo "Error: Dobby is not properly installed."
+    echo "Please run the install.sh script again."
+    exit 1
+fi
+
+exec bash "${DOBBY_HOME}/dobby_ui.sh" "$@"
+UI_CMD
+    chmod +x "${BIN_DIR}/dobby-ui"
 
     log_success "Commands created"
 }
@@ -283,6 +307,7 @@ uninstall_dobby() {
     rm -f "${BIN_DIR}/dobby"
     rm -f "${BIN_DIR}/dobby-setup"
     rm -f "${BIN_DIR}/dobby-monitor"
+    rm -f "${BIN_DIR}/dobby-ui"
 
     # Remove dobby home directory
     if [[ -d "$DOBBY_HOME" ]]; then
@@ -313,7 +338,7 @@ verify_installation() {
     done
 
     # Check commands exist
-    for cmd in dobby dobby-setup dobby-monitor; do
+    for cmd in dobby dobby-setup dobby-monitor dobby-ui; do
         if [[ ! -f "${BIN_DIR}/${cmd}" ]]; then
             log_error "Missing: ${BIN_DIR}/${cmd}"
             ((errors++))
@@ -353,7 +378,8 @@ show_success() {
     echo -e "${CYAN}AVAILABLE COMMANDS:${NC}"
     echo -e "  ${GREEN}dobby${NC}           Main command (--snap, --status, --help)"
     echo -e "  ${GREEN}dobby-setup${NC}     Create new MuleSoft projects"
-    echo -e "  ${GREEN}dobby-monitor${NC}   Live monitoring dashboard"
+    echo -e "  ${GREEN}dobby-monitor${NC}   Live monitoring dashboard (terminal)"
+    echo -e "  ${GREEN}dobby-ui${NC}        Web-based UI dashboard (browser)"
     echo ""
     echo -e "${CYAN}QUICK START:${NC}"
     echo "  1. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)"

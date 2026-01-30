@@ -28,6 +28,7 @@ Named after Harry Potter's loyal house-elf, Dobby embodies dedication and autono
 - **Rate Limiting** - Respects API limits with automatic cooldown
 - **Circuit Breaker** - Detects stuck loops and prevents infinite cycling
 - **Live Monitoring** - Real-time dashboard showing progress
+- **Web UI** - Futuristic black web dashboard for browser-based control
 - **Beautiful Terminal UI** - ASCII art and colorful status indicators
 - **MuleSoft Best Practices** - Generates API-led architecture, DataWeave, and MUnit tests
 
@@ -163,13 +164,31 @@ dobby-setup order-api /path/to/projects
 
 ### `dobby-monitor`
 
-Live monitoring dashboard.
+Live terminal monitoring dashboard.
 
 ```bash
 dobby-monitor           # Monitor current directory
 dobby-monitor --once    # Show status once and exit
 dobby-monitor --tmux    # Start in tmux session
 ```
+
+### `dobby-ui`
+
+Web-based UI dashboard. Opens a lightweight local web server with a futuristic dark interface.
+
+```bash
+dobby-ui                          # Start on default port 3131
+dobby-ui --port 8080              # Start on custom port
+dobby-ui --open ./my-project      # Start and auto-open browser
+```
+
+Features:
+- Real-time status monitoring with auto-refresh
+- Edit MASTER_ORDERS.md directly in the browser
+- View task plan with completion tracking
+- Live log streaming with color-coded entries
+- Start/stop Dobby from the browser
+- Zero dependencies (Python 3 stdlib only)
 
 ## Configuration
 
@@ -353,7 +372,8 @@ npm install -g @anthropic-ai/claude-code
 
 ### Optional (Recommended)
 
-- **tmux**: For monitoring dashboard
+- **Python 3**: For the web UI (`dobby-ui`)
+- **tmux**: For terminal monitoring dashboard
 - **jq**: For JSON processing
 - **git**: For version control
 
