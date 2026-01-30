@@ -243,7 +243,8 @@ body{
     </div>
   </div>
   <div class="header-right">
-    <input type="text" class="project-input" id="projectPath" placeholder="Project path..." title="Path to your MuleSoft project">
+    <input type="text" class="project-input" id="projectPath" placeholder="Project path..." title="Path to your MuleSoft project" onkeydown="if(event.key==='Enter')loadProject()">
+    <button class="btn" id="btnLoad" onclick="loadProject()">Load</button>
     <button class="btn btn-primary" id="btnStart" onclick="startDobby()">&#9654; Start</button>
     <button class="btn btn-danger" id="btnStop" onclick="stopDobby()" disabled>&#9632; Stop</button>
   </div>
@@ -395,6 +396,36 @@ async function api(path, opts = {}) {
   }
 }
 
+// ── Load Project ──
+let projectLoaded = false;
+
+async function loadProject() {
+  const path = document.getElementById('projectPath').value.trim();
+  if (!path) { toast('Enter a project path first', 'error'); return false; }
+  const data = await api('/api/load', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project_path: path })
+  });
+  if (data && data.ok) {
+    projectLoaded = true;
+    toast('Project loaded', 'success');
+    loadOrders();
+    fetchPlan();
+    return true;
+  } else {
+    toast(data?.error || 'Failed to load project', 'error');
+    return false;
+  }
+}
+
+async function ensureProjectLoaded() {
+  if (projectLoaded) return true;
+  const path = document.getElementById('projectPath').value.trim();
+  if (!path) { toast('Enter a project path and click Load first', 'error'); return false; }
+  return await loadProject();
+}
+
 // ── Start / Stop ──
 async function startDobby() {
   const path = document.getElementById('projectPath').value.trim();
@@ -405,6 +436,7 @@ async function startDobby() {
     body: JSON.stringify({ project_path: path })
   });
   if (data && data.ok) {
+    projectLoaded = true;
     toast('Dobby is snapping!', 'success');
     isRunning = true;
     updateControls();
@@ -595,6 +627,7 @@ async function loadOrders() {
 }
 
 async function saveOrders() {
+  if (!(await ensureProjectLoaded())) return;
   const content = document.getElementById('ordersEditor').value;
   const data = await api('/api/orders', {
     method: 'POST',
@@ -630,10 +663,10 @@ function capitalize(s) {
   }
   if (data && data.project_path) {
     document.getElementById('projectPath').value = data.project_path;
+    projectLoaded = true;
+    loadOrders();
+    fetchPlan();
   }
-  // Auto-load orders & plan
-  loadOrders();
-  fetchPlan();
 })();
 </script>
 </body>

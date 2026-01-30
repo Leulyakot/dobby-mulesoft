@@ -147,6 +147,9 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/orders":
             self.handle_save_orders()
 
+        elif path == "/api/load":
+            self.handle_load_project()
+
         else:
             self.send_error(404)
 
@@ -276,13 +279,35 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         dobby_process = None
         self.send_json({"ok": True})
 
+    def handle_load_project(self):
+        global project_path
+
+        body = self.read_body()
+        proj = body.get("project_path", "").strip()
+
+        if not proj:
+            self.send_json({"ok": False, "error": "No project path provided"}, 400)
+            return
+
+        proj = os.path.expanduser(proj)
+        if not os.path.isabs(proj):
+            proj = os.path.abspath(proj)
+
+        dobby_dir = os.path.join(proj, DOBBY_DIR)
+        if not os.path.isdir(dobby_dir):
+            self.send_json({"ok": False, "error": f"No .dobby directory found in {proj}"}, 400)
+            return
+
+        project_path = proj
+        self.send_json({"ok": True, "project_path": project_path})
+
     def handle_save_orders(self):
         body = self.read_body()
         content = body.get("content", "")
 
         orders_path = resolve_project_file(ORDERS_FILE)
         if not orders_path:
-            self.send_json({"ok": False, "error": "No project loaded"}, 400)
+            self.send_json({"ok": False, "error": "No project loaded. Click Load first."}, 400)
             return
 
         try:
