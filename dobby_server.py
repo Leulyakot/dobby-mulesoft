@@ -6,11 +6,14 @@ Zero dependencies beyond Python 3 stdlib.
 
 import http.server
 import json
+import logging
 import os
 import signal
 import subprocess
 import sys
 import threading
+import traceback
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -23,10 +26,33 @@ ORDERS_FILE = os.path.join(DOBBY_DIR, "MASTER_ORDERS.md")
 PLAN_FILE = os.path.join(DOBBY_DIR, "@magic_plan.md")
 LOG_FILE = os.path.join(DOBBY_DIR, "house-elf-magic", "dobby.log")
 
+# ── Server log file ──
+SERVER_LOG_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "dobby_server.log"
+)
+
 # ── State ──
 project_path = None
 dobby_process = None
 server_dir = os.path.dirname(os.path.abspath(__file__))
+
+# ── Logging setup ──
+logger = logging.getLogger("dobby-server")
+logger.setLevel(logging.DEBUG)
+
+# File handler - logs everything to dobby_server.log
+_fh = logging.FileHandler(SERVER_LOG_FILE, encoding="utf-8")
+_fh.setLevel(logging.DEBUG)
+_fh.setFormatter(logging.Formatter(
+    "%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+))
+logger.addHandler(_fh)
+
+# Console handler - only warnings and above
+_ch = logging.StreamHandler()
+_ch.setLevel(logging.WARNING)
+_ch.setFormatter(logging.Formatter("  %(levelname)s: %(message)s"))
+logger.addHandler(_ch)
 
 
 def resolve_project_file(rel_path):
@@ -42,8 +68,8 @@ def read_file_safe(path):
         if path and os.path.isfile(path):
             with open(path, "r", encoding="utf-8", errors="replace") as f:
                 return f.read()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"read_file_safe({path}): {e}")
     return ""
 
 
@@ -53,8 +79,8 @@ def read_json_safe(path):
     if content:
         try:
             return json.loads(content)
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.error(f"read_json_safe({path}): bad JSON: {e}")
     return {}
 
 
@@ -62,8 +88,8 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
     """HTTP request handler for the Dobby UI API."""
 
     def log_message(self, format, *args):
-        """Suppress default logging for cleaner output."""
-        pass
+        """Route default HTTP log to our logger."""
+        logger.debug(f"HTTP  {self.client_address[0]}  {format % args}")
 
     def send_json(self, data, status=200):
         """Send a JSON response."""
@@ -74,6 +100,8 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
+        if status >= 400:
+            logger.warning(f"  -> {status} {data}")
 
     def send_file(self, filepath, content_type):
         """Send a static file."""
@@ -87,6 +115,7 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
         except FileNotFoundError:
+            logger.error(f"File not found: {filepath}")
             self.send_error(404)
 
     def read_body(self):
@@ -97,7 +126,8 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         raw = self.rfile.read(length)
         try:
             return json.loads(raw.decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.error(f"read_body: bad JSON: {e}")
             return {}
 
     def do_OPTIONS(self):
@@ -111,47 +141,57 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         """Route GET requests."""
         path = urlparse(self.path).path
+        logger.info(f"GET  {path}")
 
-        if path == "/" or path == "/index.html":
-            ui_path = os.path.join(server_dir, "ui", "index.html")
-            self.send_file(ui_path, "text/html; charset=utf-8")
+        try:
+            if path == "/" or path == "/index.html":
+                ui_path = os.path.join(server_dir, "ui", "index.html")
+                self.send_file(ui_path, "text/html; charset=utf-8")
 
-        elif path == "/api/status":
-            self.handle_get_status()
+            elif path == "/api/status":
+                self.handle_get_status()
 
-        elif path == "/api/logs":
-            self.handle_get_logs()
+            elif path == "/api/logs":
+                self.handle_get_logs()
 
-        elif path == "/api/orders":
-            self.handle_get_orders()
+            elif path == "/api/orders":
+                self.handle_get_orders()
 
-        elif path == "/api/plan":
-            self.handle_get_plan()
+            elif path == "/api/plan":
+                self.handle_get_plan()
 
-        elif path == "/api/config":
-            self.handle_get_config()
+            elif path == "/api/config":
+                self.handle_get_config()
 
-        else:
-            self.send_error(404)
+            else:
+                self.send_error(404)
+        except Exception:
+            logger.error(f"GET {path} crashed:\n{traceback.format_exc()}")
+            self.send_json({"ok": False, "error": "Internal server error"}, 500)
 
     def do_POST(self):
         """Route POST requests."""
         path = urlparse(self.path).path
+        logger.info(f"POST {path}")
 
-        if path == "/api/start":
-            self.handle_start()
+        try:
+            if path == "/api/start":
+                self.handle_start()
 
-        elif path == "/api/stop":
-            self.handle_stop()
+            elif path == "/api/stop":
+                self.handle_stop()
 
-        elif path == "/api/orders":
-            self.handle_save_orders()
+            elif path == "/api/orders":
+                self.handle_save_orders()
 
-        elif path == "/api/load":
-            self.handle_load_project()
+            elif path == "/api/load":
+                self.handle_load_project()
 
-        else:
-            self.send_error(404)
+            else:
+                self.send_error(404)
+        except Exception:
+            logger.error(f"POST {path} crashed:\n{traceback.format_exc()}")
+            self.send_json({"ok": False, "error": "Internal server error"}, 500)
 
     # ── API Handlers ──
 
@@ -212,6 +252,7 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
 
         body = self.read_body()
         proj = body.get("project_path", "").strip()
+        logger.info(f"start: project_path={proj!r}")
 
         if not proj:
             self.send_json({"ok": False, "error": "No project path provided"}, 400)
@@ -223,7 +264,8 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
 
         dobby_dir = os.path.join(proj, DOBBY_DIR)
         if not os.path.isdir(dobby_dir):
-            self.send_json({"ok": False, "error": f"No .dobby directory found in {proj}"}, 400)
+            logger.warning(f"start: .dobby dir missing at {dobby_dir}")
+            self.send_json({"ok": False, "error": f"No .dobby directory found in {proj}. Run dobby-setup first or click Load to create one."}, 400)
             return
 
         if dobby_process and dobby_process.poll() is None:
@@ -245,10 +287,12 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
                 break
 
         if not loop_script:
+            logger.error(f"start: dobby_loop.sh not found. Searched: {candidates}")
             self.send_json({"ok": False, "error": "Cannot find dobby_loop.sh"}, 500)
             return
 
         try:
+            logger.info(f"start: launching {loop_script} in {project_path}")
             dobby_process = subprocess.Popen(
                 ["bash", loop_script, "--snap"],
                 cwd=project_path,
@@ -256,8 +300,10 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
                 stderr=subprocess.DEVNULL,
                 preexec_fn=os.setsid,
             )
+            logger.info(f"start: pid={dobby_process.pid}")
             self.send_json({"ok": True, "pid": dobby_process.pid})
         except Exception as e:
+            logger.error(f"start: failed to launch: {e}\n{traceback.format_exc()}")
             self.send_json({"ok": False, "error": str(e)}, 500)
 
     def handle_stop(self):
@@ -268,6 +314,7 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             return
 
         try:
+            logger.info(f"stop: killing pid={dobby_process.pid}")
             os.killpg(os.getpgid(dobby_process.pid), signal.SIGTERM)
             dobby_process.wait(timeout=10)
         except Exception:
@@ -284,6 +331,7 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
 
         body = self.read_body()
         proj = body.get("project_path", "").strip()
+        logger.info(f"load: project_path={proj!r}")
 
         if not proj:
             self.send_json({"ok": False, "error": "No project path provided"}, 400)
@@ -293,12 +341,45 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         if not os.path.isabs(proj):
             proj = os.path.abspath(proj)
 
-        dobby_dir = os.path.join(proj, DOBBY_DIR)
-        if not os.path.isdir(dobby_dir):
-            self.send_json({"ok": False, "error": f"No .dobby directory found in {proj}"}, 400)
+        # Check the base directory exists
+        if not os.path.isdir(proj):
+            logger.warning(f"load: directory does not exist: {proj}")
+            self.send_json({"ok": False, "error": f"Directory does not exist: {proj}"}, 400)
             return
 
+        # Auto-create .dobby structure if missing
+        dobby_dir = os.path.join(proj, DOBBY_DIR)
+        if not os.path.isdir(dobby_dir):
+            logger.info(f"load: creating .dobby structure in {proj}")
+            try:
+                os.makedirs(os.path.join(proj, DOBBY_DIR, "house-elf-magic"), exist_ok=True)
+                os.makedirs(os.path.join(proj, DOBBY_DIR, "blueprints"), exist_ok=True)
+                os.makedirs(os.path.join(proj, DOBBY_DIR, "sock-drawer"), exist_ok=True)
+                # Create empty MASTER_ORDERS.md
+                orders = os.path.join(proj, ORDERS_FILE)
+                if not os.path.isfile(orders):
+                    with open(orders, "w", encoding="utf-8") as f:
+                        f.write("# Master's Integration Orders\n\n"
+                                "## What Dobby Must Build\n\n"
+                                "Describe your integration here.\n")
+                # Create empty plan
+                plan = os.path.join(proj, PLAN_FILE)
+                if not os.path.isfile(plan):
+                    with open(plan, "w", encoding="utf-8") as f:
+                        f.write("# Magic Plan\n\n"
+                                "## Tasks\n\n"
+                                "- [ ] Define integration requirements\n"
+                                "- [ ] Build system APIs\n"
+                                "- [ ] Build process APIs\n"
+                                "- [ ] Create tests\n")
+                logger.info(f"load: .dobby structure created")
+            except Exception as e:
+                logger.error(f"load: failed to create .dobby: {e}\n{traceback.format_exc()}")
+                self.send_json({"ok": False, "error": f"Failed to create .dobby directory: {e}"}, 500)
+                return
+
         project_path = proj
+        logger.info(f"load: project set to {project_path}")
         self.send_json({"ok": True, "project_path": project_path})
 
     def handle_save_orders(self):
@@ -314,8 +395,10 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             os.makedirs(os.path.dirname(orders_path), exist_ok=True)
             with open(orders_path, "w", encoding="utf-8") as f:
                 f.write(content)
+            logger.info(f"save_orders: wrote {len(content)} bytes to {orders_path}")
             self.send_json({"ok": True})
         except Exception as e:
+            logger.error(f"save_orders: {e}\n{traceback.format_exc()}")
             self.send_json({"ok": False, "error": str(e)}, 500)
 
 
@@ -347,6 +430,11 @@ def main():
         if os.path.isdir(os.path.join(p, DOBBY_DIR)):
             project_path = os.path.abspath(p)
 
+    logger.info(f"Server starting on port {port}")
+    logger.info(f"Log file: {SERVER_LOG_FILE}")
+    if project_path:
+        logger.info(f"Project: {project_path}")
+
     server = ThreadedServer(("0.0.0.0", port), DobbyHandler)
 
     print(f"""
@@ -361,12 +449,14 @@ def main():
 
     if project_path:
         print(f"  Project: {project_path}")
+    print(f"  Log file: {SERVER_LOG_FILE}")
     print(f"  Press Ctrl+C to stop\n")
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n  Dobby UI server stopped.")
+        logger.info("Server stopped by user")
         # Clean up dobby process if running
         if dobby_process and dobby_process.poll() is None:
             try:
