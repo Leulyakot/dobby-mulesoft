@@ -206,8 +206,12 @@ wait_for_rate_limit() {
 
 # Get hash of project files
 get_files_hash() {
+    local hash_cmd="md5sum"
+    if ! command -v md5sum &>/dev/null; then
+        hash_cmd="md5 -r"
+    fi
     find "$PROJECT_DIR" -type f \( -name "*.xml" -o -name "*.dwl" -o -name "*.raml" -o -name "*.yaml" \) \
-        -not -path "*/.dobby/*" -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1
+        -not -path "*/.dobby/*" -exec $hash_cmd {} \; 2>/dev/null | sort | $hash_cmd 2>/dev/null | cut -d' ' -f1 || echo "none"
 }
 
 # Check circuit breaker state

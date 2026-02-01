@@ -200,6 +200,10 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         status_path = resolve_project_file(STATUS_FILE)
         data = read_json_safe(status_path) if status_path else {}
 
+        # Map dobby_loop.sh key ("dobby_status") to what the UI expects ("status")
+        if "dobby_status" in data:
+            data["status"] = data.pop("dobby_status")
+
         # Enrich with computed fields
         plan_path = resolve_project_file(PLAN_FILE)
         plan_content = read_file_safe(plan_path)
@@ -293,14 +297,18 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
 
         try:
             logger.info(f"start: launching {loop_script} in {project_path}")
+            # Capture stderr for debugging loop failures
+            stderr_path = os.path.join(proj, LOG_DIR, "dobby_stderr.log")
+            os.makedirs(os.path.dirname(stderr_path), exist_ok=True)
+            stderr_file = open(stderr_path, "w", encoding="utf-8")
             dobby_process = subprocess.Popen(
                 ["bash", loop_script, "--snap"],
                 cwd=project_path,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=stderr_file,
                 preexec_fn=os.setsid,
             )
-            logger.info(f"start: pid={dobby_process.pid}")
+            logger.info(f"start: pid={dobby_process.pid}, stderr -> {stderr_path}")
             self.send_json({"ok": True, "pid": dobby_process.pid})
         except Exception as e:
             logger.error(f"start: failed to launch: {e}\n{traceback.format_exc()}")
