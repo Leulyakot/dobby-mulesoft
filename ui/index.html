@@ -7,7 +7,7 @@
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#000;--bg2:#0a0a0f;--bg3:#111118;
+  --bg:#000;--bg2:#0a0a0f;
   --card:rgba(255,255,255,0.03);--card-border:rgba(255,255,255,0.06);
   --cyan:#00f0ff;--purple:#8b5cf6;--green:#00ff88;--red:#ff3366;--amber:#f59e0b;
   --text:#e8e8e8;--muted:#555;--dim:#333;
@@ -30,11 +30,11 @@ body{
 /* HEADER */
 .header{
   position:sticky;top:0;z-index:100;
-  display:flex;align-items:center;justify-content:space-between;
   padding:12px 24px;
   background:rgba(0,0,0,0.85);backdrop-filter:blur(20px);
   border-bottom:1px solid var(--card-border);
 }
+.header-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .header-left{display:flex;align-items:center;gap:16px}
 .logo{
   font-size:1.5rem;font-weight:700;letter-spacing:4px;
@@ -51,8 +51,7 @@ body{
 }
 .status-dot{
   width:7px;height:7px;border-radius:50%;
-  background:var(--muted);
-  transition:background 0.3s;
+  background:var(--muted);transition:background 0.3s;
 }
 .status-dot.working{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
 .status-dot.complete{background:var(--green);box-shadow:0 0 8px var(--green)}
@@ -61,6 +60,7 @@ body{
 .status-dot.idle{background:var(--muted)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 .status-dot.working{animation:pulse 2s ease-in-out infinite}
+.status-info{font-size:0.8rem;color:var(--muted);margin-left:8px}
 
 .header-right{display:flex;align-items:center;gap:8px}
 .btn{
@@ -75,104 +75,67 @@ body{
 .btn-danger{border-color:rgba(255,51,102,0.3);color:var(--red)}
 .btn-danger:hover{background:rgba(255,51,102,0.1)}
 .btn:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
+.project-input{
+  padding:8px 14px;border-radius:6px;border:1px solid var(--card-border);
+  background:var(--card);color:var(--text);font-family:var(--font);
+  font-size:0.85rem;width:260px;outline:none;
+}
+.project-input:focus{border-color:rgba(0,240,255,0.3)}
+.loops-input{
+  padding:8px 10px;border-radius:6px;border:1px solid var(--card-border);
+  background:var(--card);color:var(--text);font-family:var(--font);
+  font-size:0.85rem;width:60px;outline:none;text-align:center;
+}
+.loops-input:focus{border-color:rgba(0,240,255,0.3)}
+.input-label{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+/* PROGRESS BAR in header */
+.progress-bar-wrap{
+  height:3px;background:var(--dim);margin-top:10px;border-radius:2px;overflow:hidden;
+}
+.progress-bar{
+  height:100%;border-radius:2px;transition:width 0.6s ease;width:0%;
+  background:linear-gradient(90deg,var(--cyan),var(--purple));
+  box-shadow:0 0 8px rgba(0,240,255,0.3);
+}
 
 /* MAIN */
 .main{max-width:1100px;margin:0 auto;padding:20px 24px 40px}
 
-/* STATS ROW */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.stat-card{
-  padding:14px 16px;border-radius:var(--radius);
-  background:var(--card);border:1px solid var(--card-border);
-  transition:border-color 0.3s;
+/* ORDERS SECTION */
+.section{margin-bottom:20px}
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;cursor:pointer;user-select:none;
 }
-.stat-card:hover{border-color:rgba(255,255,255,0.1)}
-.stat-label{font-size:0.75rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:6px}
-.stat-value{font-size:1.8rem;font-weight:600;color:var(--text)}
-.stat-value .unit{font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:2px}
-.stat-sub{font-size:0.8rem;color:var(--muted);margin-top:4px}
-
-/* PROGRESS */
-.progress-section{margin-bottom:20px}
-.progress-bar-wrap{
-  height:6px;background:var(--dim);border-radius:3px;overflow:hidden;margin-bottom:8px;
+.section-title{
+  font-size:0.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);
 }
-.progress-bar{
-  height:100%;border-radius:2px;transition:width 0.6s ease;
-  background:linear-gradient(90deg,var(--cyan),var(--purple));
-  box-shadow:0 0 12px rgba(0,240,255,0.3);
-}
-.progress-info{display:flex;justify-content:space-between;font-size:0.85rem;color:var(--muted)}
-
-/* TABS */
-.tabs{display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--card-border)}
-.tab{
-  padding:10px 20px;font-size:0.9rem;letter-spacing:1px;text-transform:uppercase;
-  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;
-  transition:all 0.2s;font-family:var(--font);background:none;border-top:none;border-left:none;border-right:none;
-}
-.tab:hover{color:var(--text)}
-.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
-
-/* TAB CONTENT */
-.tab-content{display:none;padding:16px 0}
-.tab-content.active{display:block}
-
-/* DASHBOARD */
-.activity-list{display:flex;flex-direction:column;gap:2px}
-.activity-item{
-  display:flex;align-items:flex-start;gap:10px;
-  padding:8px 12px;border-radius:6px;font-size:0.95rem;
-  transition:background 0.15s;
-}
-.activity-item:hover{background:rgba(255,255,255,0.02)}
-.activity-time{color:var(--muted);white-space:nowrap;font-size:0.85rem;min-width:60px}
-.activity-icon{width:16px;text-align:center;flex-shrink:0}
-.activity-icon.success{color:var(--green)}
-.activity-icon.error{color:var(--red)}
-.activity-icon.snap{color:var(--purple)}
-.activity-icon.info{color:var(--cyan)}
-.activity-icon.warn{color:var(--amber)}
-.activity-msg{color:var(--text);line-height:1.4;word-break:break-word}
-
-.empty-state{
-  text-align:center;padding:48px 20px;color:var(--muted);font-size:0.95rem;
-}
-.empty-state .icon{font-size:2.5rem;margin-bottom:12px;opacity:0.3}
-
-/* TASKS */
-.task-list{display:flex;flex-direction:column;gap:1px}
-.task-item{
-  display:flex;align-items:center;gap:10px;
-  padding:8px 12px;border-radius:6px;font-size:0.95rem;
-}
-.task-item:hover{background:rgba(255,255,255,0.02)}
-.task-check{width:16px;flex-shrink:0;text-align:center}
-.task-check.done{color:var(--green)}
-.task-check.pending{color:var(--dim)}
-.task-check.current{color:var(--cyan)}
-.task-text{line-height:1.4}
-.task-text.done{color:var(--muted);text-decoration:line-through}
-.task-text.current{color:var(--cyan)}
-
-/* EDITOR */
-.editor-wrap{position:relative}
+.section-toggle{font-size:0.8rem;color:var(--muted);transition:transform 0.2s}
 .editor{
-  width:100%;min-height:450px;padding:16px;
+  width:100%;min-height:200px;padding:14px;
   background:var(--bg2);color:var(--text);
   border:1px solid var(--card-border);border-radius:var(--radius);
   font-family:var(--font);font-size:0.95rem;line-height:1.6;
-  resize:vertical;outline:none;
-  transition:border-color 0.2s;
+  resize:vertical;outline:none;transition:border-color 0.2s;
 }
 .editor:focus{border-color:rgba(0,240,255,0.3)}
-.editor-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.editor-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.collapsed .editor,.collapsed .editor-actions{display:none}
 
-/* LOGS */
+/* LOG */
+.log-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;
+}
+.log-title{font-size:0.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted)}
+.log-controls{display:flex;align-items:center;gap:12px}
+.log-controls label{font-size:0.8rem;color:var(--muted);display:flex;align-items:center;gap:5px}
+.log-controls input[type=checkbox]{accent-color:var(--cyan)}
 .log-container{
   background:var(--bg2);border:1px solid var(--card-border);
   border-radius:var(--radius);padding:12px;
-  max-height:500px;overflow-y:auto;font-size:0.9rem;line-height:1.7;
+  height:calc(100vh - 380px);min-height:300px;overflow-y:auto;
+  font-size:0.85rem;line-height:1.7;
 }
 .log-line{white-space:pre-wrap;word-break:break-all}
 .log-line .ts{color:var(--muted)}
@@ -181,26 +144,13 @@ body{
 .log-line .lvl-warn{color:var(--amber)}
 .log-line .lvl-snap{color:var(--purple)}
 .log-line .lvl-info{color:var(--cyan)}
-.log-controls{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.log-controls label{font-size:0.85rem;color:var(--muted);display:flex;align-items:center;gap:6px}
-.log-controls input[type=checkbox]{accent-color:var(--cyan)}
-
-/* DOBBY ASCII */
-.dobby-ascii{
-  text-align:center;padding:20px;color:var(--dim);
-  font-size:0.85rem;line-height:1.3;
-  user-select:none;
-}
-.dobby-ascii.working{color:var(--cyan)}
-.dobby-ascii.happy{color:var(--green)}
-.dobby-ascii.sad{color:var(--red)}
-.dobby-ascii.idle{color:var(--dim)}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);font-size:0.9rem}
 
 /* TOAST */
 .toast-container{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px}
 .toast{
   padding:10px 16px;border-radius:var(--radius);font-size:0.9rem;
-  background:var(--bg3);border:1px solid var(--card-border);
+  background:rgba(17,17,24,0.95);border:1px solid var(--card-border);
   box-shadow:0 4px 24px rgba(0,0,0,0.5);
   animation:slideIn 0.3s ease;max-width:320px;
 }
@@ -210,31 +160,11 @@ body{
 @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes fadeOut{from{opacity:1}to{opacity:0}}
 
-/* PROJECT SELECTOR */
-.project-input{
-  padding:8px 14px;border-radius:6px;border:1px solid var(--card-border);
-  background:var(--card);color:var(--text);font-family:var(--font);
-  font-size:0.85rem;width:220px;outline:none;
-}
-.project-input:focus{border-color:rgba(0,240,255,0.3)}
-.loops-input{
-  padding:8px 10px;border-radius:6px;border:1px solid var(--card-border);
-  background:var(--card);color:var(--text);font-family:var(--font);
-  font-size:0.85rem;width:70px;outline:none;text-align:center;
-}
-.loops-input:focus{border-color:rgba(0,240,255,0.3)}
-.input-label{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
-
 /* RESPONSIVE */
 @media(max-width:768px){
-  .stats{grid-template-columns:repeat(2,1fr)}
-  .header{padding:10px 16px;flex-wrap:wrap;gap:8px}
+  .header-top{flex-wrap:wrap;gap:8px}
   .main{padding:16px}
-  .project-input{width:140px}
-}
-@media(max-width:480px){
-  .stats{grid-template-columns:1fr 1fr}
-  .stat-value{font-size:1.2rem}
+  .project-input{width:160px}
 }
 </style>
 </head>
@@ -242,147 +172,70 @@ body{
 
 <!-- HEADER -->
 <header class="header">
-  <div class="header-left">
-    <div class="logo">DOBBY<span>MuleSoft Elf</span></div>
-    <div class="status-pill">
-      <div class="status-dot idle" id="statusDot"></div>
-      <span id="statusText">Idle</span>
+  <div class="header-top">
+    <div class="header-left">
+      <div class="logo">DOBBY<span>MuleSoft Elf</span></div>
+      <div class="status-pill">
+        <div class="status-dot idle" id="statusDot"></div>
+        <span id="statusText">Idle</span>
+      </div>
+      <span class="status-info" id="statusInfo"></span>
+    </div>
+    <div class="header-right">
+      <input type="text" class="project-input" id="projectPath" placeholder="Project path..." title="Path to your MuleSoft project" onkeydown="if(event.key==='Enter')loadProject()">
+      <button class="btn" onclick="loadProject()">Load</button>
+      <span class="input-label">Loops</span>
+      <input type="number" class="loops-input" id="maxLoops" value="100" min="1" max="9999" title="Maximum development loops">
+      <button class="btn btn-primary" id="btnStart" onclick="startDobby()">&#9654; Start</button>
+      <button class="btn btn-danger" id="btnStop" onclick="stopDobby()" disabled>&#9632; Stop</button>
     </div>
   </div>
-  <div class="header-right">
-    <input type="text" class="project-input" id="projectPath" placeholder="Project path..." title="Path to your MuleSoft project" onkeydown="if(event.key==='Enter')loadProject()">
-    <button class="btn" id="btnLoad" onclick="loadProject()">Load</button>
-    <span class="input-label">Loops</span>
-    <input type="number" class="loops-input" id="maxLoops" value="100" min="1" max="9999" title="Maximum development loops">
-    <button class="btn btn-primary" id="btnStart" onclick="startDobby()">&#9654; Start</button>
-    <button class="btn btn-danger" id="btnStop" onclick="stopDobby()" disabled>&#9632; Stop</button>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar" id="progressBar"></div>
   </div>
 </header>
 
 <!-- MAIN -->
 <div class="main">
 
-  <!-- DOBBY ASCII -->
-  <div class="dobby-ascii idle" id="dobbyAscii">
-<pre>
-    .---.
-   | ^ ^ |
-   |  &gt;  |
-    \___/
-     |||
-    /|||\
-</pre>
-  </div>
-
-  <!-- STATS -->
-  <div class="stats">
-    <div class="stat-card">
-      <div class="stat-label">Loop</div>
-      <div class="stat-value"><span id="loopCurrent">0</span><span class="unit">/ <span id="loopMax">100</span></span></div>
-      <div class="stat-sub" id="loopSub">Not started</div>
+  <!-- ORDERS (collapsible) -->
+  <div class="section" id="ordersSection">
+    <div class="section-header" onclick="toggleOrders()">
+      <span class="section-title">Master Orders</span>
+      <span class="section-toggle" id="ordersToggle">&#9660;</span>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">API Calls</div>
-      <div class="stat-value" id="apiCalls">0</div>
-      <div class="stat-sub" id="apiSub">This hour</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Tasks</div>
-      <div class="stat-value"><span id="tasksDone">0</span><span class="unit">/ <span id="tasksTotal">0</span></span></div>
-      <div class="stat-sub" id="tasksSub">No tasks loaded</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Circuit</div>
-      <div class="stat-value" id="circuitState">--</div>
-      <div class="stat-sub" id="circuitSub">Health check</div>
+    <textarea class="editor" id="ordersEditor" placeholder="# MASTER_ORDERS.md&#10;&#10;Write your integration specifications here..."></textarea>
+    <div class="editor-actions">
+      <button class="btn" onclick="loadOrders()">Reload</button>
+      <button class="btn btn-primary" onclick="saveOrders()">Save</button>
     </div>
   </div>
 
-  <!-- PROGRESS -->
-  <div class="progress-section">
-    <div class="progress-bar-wrap">
-      <div class="progress-bar" id="progressBar" style="width:0%"></div>
-    </div>
-    <div class="progress-info">
-      <span id="progressLabel">Waiting to start...</span>
-      <span id="progressPct">0%</span>
-    </div>
-  </div>
-
-  <!-- TABS -->
-  <div class="tabs">
-    <button class="tab active" data-tab="dashboard">Dashboard</button>
-    <button class="tab" data-tab="orders">Orders</button>
-    <button class="tab" data-tab="plan">Plan</button>
-    <button class="tab" data-tab="logs">Logs</button>
-  </div>
-
-  <!-- DASHBOARD TAB -->
-  <div class="tab-content active" id="tab-dashboard">
-    <div class="activity-list" id="activityList">
-      <div class="empty-state">
-        <div class="icon">&#9889;</div>
-        <div>No activity yet. Start Dobby to begin building.</div>
+  <!-- LOG -->
+  <div class="section">
+    <div class="log-header">
+      <span class="log-title">Log</span>
+      <div class="log-controls">
+        <label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label>
+        <button class="btn" onclick="clearLogs()" style="padding:4px 10px;font-size:0.75rem">Clear</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ORDERS TAB -->
-  <div class="tab-content" id="tab-orders">
-    <div class="editor-wrap">
-      <textarea class="editor" id="ordersEditor" placeholder="# MASTER_ORDERS.md&#10;&#10;Write your integration specifications here...&#10;&#10;Dobby will read this file and build your MuleSoft integration."></textarea>
-      <div class="editor-actions">
-        <button class="btn" onclick="loadOrders()">Reload</button>
-        <button class="btn btn-primary" onclick="saveOrders()">Save Orders</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- PLAN TAB -->
-  <div class="tab-content" id="tab-plan">
-    <div class="task-list" id="planList">
-      <div class="empty-state">
-        <div class="icon">&#128203;</div>
-        <div>No plan loaded. Start Dobby or load a project.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- LOGS TAB -->
-  <div class="tab-content" id="tab-logs">
-    <div class="log-controls">
-      <label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label>
-      <button class="btn" onclick="clearLogs()">Clear</button>
     </div>
     <div class="log-container" id="logContainer">
-      <div class="empty-state">
-        <div class="icon">&#128196;</div>
-        <div>No logs available.</div>
-      </div>
+      <div class="empty-state">Start Dobby to see logs here.</div>
     </div>
   </div>
 
 </div>
 
-<!-- TOAST CONTAINER -->
+<!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
 // ── State ──
 let polling = null;
-const API = '';
 let isRunning = false;
 let lastLogLength = 0;
-
-// ── Tabs ──
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-  });
-});
+let projectLoaded = false;
 
 // ── Toast ──
 function toast(msg, type = 'info') {
@@ -393,10 +246,10 @@ function toast(msg, type = 'info') {
   setTimeout(() => { el.style.animation = 'fadeOut 0.3s ease forwards'; setTimeout(() => el.remove(), 300); }, 3000);
 }
 
-// ── API Calls ──
+// ── API ──
 async function api(path, opts = {}) {
   try {
-    const res = await fetch(API + path, opts);
+    const res = await fetch(path, opts);
     if (!res.ok) throw new Error(res.statusText);
     return await res.json();
   } catch (e) {
@@ -405,9 +258,15 @@ async function api(path, opts = {}) {
   }
 }
 
-// ── Load Project ──
-let projectLoaded = false;
+// ── Orders toggle ──
+function toggleOrders() {
+  const s = document.getElementById('ordersSection');
+  const t = document.getElementById('ordersToggle');
+  s.classList.toggle('collapsed');
+  t.innerHTML = s.classList.contains('collapsed') ? '&#9654;' : '&#9660;';
+}
 
+// ── Load Project ──
 async function loadProject() {
   const path = document.getElementById('projectPath').value.trim();
   if (!path) { toast('Enter a project path first', 'error'); return false; }
@@ -420,7 +279,6 @@ async function loadProject() {
     projectLoaded = true;
     toast('Project loaded', 'success');
     loadOrders();
-    fetchPlan();
     return true;
   } else {
     toast(data?.error || 'Failed to load project', 'error');
@@ -451,6 +309,9 @@ async function startDobby() {
     isRunning = true;
     updateControls();
     startPolling();
+    // collapse orders to focus on log
+    document.getElementById('ordersSection').classList.add('collapsed');
+    document.getElementById('ordersToggle').innerHTML = '&#9654;';
   } else {
     toast(data?.error || 'Failed to start', 'error');
   }
@@ -479,12 +340,8 @@ function startPolling() {
   fetchAll();
 }
 
-function stopPolling() {
-  if (polling) { clearInterval(polling); polling = null; }
-}
-
 async function fetchAll() {
-  await Promise.all([fetchStatus(), fetchLogs(), fetchPlan()]);
+  await Promise.all([fetchStatus(), fetchLogs()]);
 }
 
 // ── Status ──
@@ -493,41 +350,26 @@ async function fetchStatus() {
   if (!data) return;
 
   const s = data.status || 'idle';
-  const dot = document.getElementById('statusDot');
-  dot.className = 'status-dot ' + s;
+  document.getElementById('statusDot').className = 'status-dot ' + s;
   document.getElementById('statusText').textContent = capitalize(s);
 
-  // Update ASCII art state
-  const ascii = document.getElementById('dobbyAscii');
-  ascii.className = 'dobby-ascii ' + (s === 'complete' ? 'happy' : s === 'error' ? 'sad' : s === 'working' ? 'working' : 'idle');
-
-  document.getElementById('loopCurrent').textContent = data.loop || 0;
-  document.getElementById('loopMax').textContent = data.max_loops || 100;
-  document.getElementById('loopSub').textContent = s === 'working' ? 'In progress' : s === 'complete' ? 'Finished' : 'Not started';
-
-  document.getElementById('apiCalls').textContent = data.api_calls || 0;
-
-  const done = data.tasks_complete || 0;
-  const total = data.tasks_total || 0;
-  document.getElementById('tasksDone').textContent = done;
-  document.getElementById('tasksTotal').textContent = total;
-  document.getElementById('tasksSub').textContent = total > 0 ? Math.round((done / total) * 100) + '% complete' : 'No tasks';
-
-  const cb = data.circuit_breaker || '--';
-  const cbEl = document.getElementById('circuitState');
-  cbEl.textContent = capitalize(cb);
-  cbEl.style.color = cb === 'closed' ? 'var(--green)' : cb === 'half-open' ? 'var(--amber)' : cb === 'open' ? 'var(--red)' : 'var(--text)';
-  document.getElementById('circuitSub').textContent = cb === 'closed' ? 'Healthy' : cb === 'open' ? 'Stuck detected' : 'Monitoring';
-
+  // Compact info line
+  const loop = data.loop || 0;
+  const maxL = data.max_loops || 100;
   const pct = data.progress || 0;
+  document.getElementById('statusInfo').textContent =
+    s !== 'idle' ? 'Loop ' + loop + '/' + maxL + '  |  ' + pct + '%' : '';
+
   document.getElementById('progressBar').style.width = pct + '%';
-  document.getElementById('progressPct').textContent = pct + '%';
-  document.getElementById('progressLabel').textContent = data.current_task || (s === 'working' ? 'Processing...' : 'Waiting to start...');
 
   if (s === 'complete' && isRunning) {
     isRunning = false;
     updateControls();
     toast('Dobby has completed all tasks!', 'success');
+  }
+  if (s === 'error' && isRunning) {
+    isRunning = false;
+    updateControls();
   }
 }
 
@@ -546,9 +388,6 @@ async function fetchLogs() {
       container.scrollTop = container.scrollHeight;
     }
   }
-
-  // Update activity list
-  updateActivity(data.lines.slice(-20).reverse());
 }
 
 function formatLogLine(line) {
@@ -567,62 +406,9 @@ function formatLogLine(line) {
   return '<div class="log-line"><span class="' + cls + '">' + esc(line) + '</span></div>';
 }
 
-function updateActivity(lines) {
-  const list = document.getElementById('activityList');
-  if (lines.length === 0) return;
-
-  list.innerHTML = lines.map(line => {
-    let icon = '&#8226;', cls = 'info';
-    if (/\[SUCCESS\]/i.test(line)) { icon = '&#10003;'; cls = 'success'; }
-    else if (/\[ERROR\]/i.test(line)) { icon = '&#10007;'; cls = 'error'; }
-    else if (/\[SNAP\]/i.test(line)) { icon = '&#9889;'; cls = 'snap'; }
-    else if (/\[WARN\]/i.test(line)) { icon = '&#9888;'; cls = 'warn'; }
-
-    const tsMatch = line.match(/^(\d{2}:\d{2}:\d{2}|\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
-    const time = tsMatch ? tsMatch[1].slice(-8) : '';
-    const msg = tsMatch ? line.slice(tsMatch[1].length).replace(/^\s*\[?\w+\]?\s*/, '') : line;
-
-    return '<div class="activity-item"><span class="activity-time">' + esc(time) +
-      '</span><span class="activity-icon ' + cls + '">' + icon +
-      '</span><span class="activity-msg">' + esc(msg.trim()) + '</span></div>';
-  }).join('');
-}
-
 function clearLogs() {
   document.getElementById('logContainer').innerHTML = '';
   lastLogLength = 0;
-}
-
-// ── Plan ──
-async function fetchPlan() {
-  const data = await api('/api/plan');
-  if (!data || !data.content) return;
-
-  const list = document.getElementById('planList');
-  const lines = data.content.split('\n');
-  const tasks = [];
-
-  lines.forEach(line => {
-    const doneMatch = line.match(/^\s*-?\s*\[x\]\s*(.*)/i);
-    const pendingMatch = line.match(/^\s*-?\s*\[\s\]\s*(.*)/i);
-    if (doneMatch) tasks.push({ text: doneMatch[1], status: 'done' });
-    else if (pendingMatch) tasks.push({ text: pendingMatch[1], status: 'pending' });
-  });
-
-  if (tasks.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="icon">&#128203;</div><div>No tasks found in plan.</div></div>';
-    return;
-  }
-
-  // Find first pending as "current"
-  let foundCurrent = false;
-  list.innerHTML = tasks.map(t => {
-    let st = t.status;
-    if (st === 'pending' && !foundCurrent) { st = 'current'; foundCurrent = true; }
-    const icon = st === 'done' ? '&#10003;' : st === 'current' ? '&#9654;' : '&#9675;';
-    return '<div class="task-item"><span class="task-check ' + st + '">' + icon +
-      '</span><span class="task-text ' + st + '">' + esc(t.text) + '</span></div>';
-  }).join('');
 }
 
 // ── Orders ──
@@ -630,9 +416,6 @@ async function loadOrders() {
   const data = await api('/api/orders');
   if (data && data.content !== undefined) {
     document.getElementById('ordersEditor').value = data.content;
-    toast('Orders loaded', 'info');
-  } else {
-    toast('Failed to load orders', 'error');
   }
 }
 
@@ -664,7 +447,6 @@ function capitalize(s) {
 
 // ── Init ──
 (async function init() {
-  // Check if there's an active session
   const data = await api('/api/status');
   if (data && data.status && data.status !== 'idle') {
     isRunning = data.status === 'working';
@@ -675,7 +457,6 @@ function capitalize(s) {
     document.getElementById('projectPath').value = data.project_path;
     projectLoaded = true;
     loadOrders();
-    fetchPlan();
   }
 })();
 </script>
