@@ -217,6 +217,13 @@ body{
   font-size:0.85rem;width:220px;outline:none;
 }
 .project-input:focus{border-color:rgba(0,240,255,0.3)}
+.loops-input{
+  padding:8px 10px;border-radius:6px;border:1px solid var(--card-border);
+  background:var(--card);color:var(--text);font-family:var(--font);
+  font-size:0.85rem;width:70px;outline:none;text-align:center;
+}
+.loops-input:focus{border-color:rgba(0,240,255,0.3)}
+.input-label{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 
 /* RESPONSIVE */
 @media(max-width:768px){
@@ -245,6 +252,8 @@ body{
   <div class="header-right">
     <input type="text" class="project-input" id="projectPath" placeholder="Project path..." title="Path to your MuleSoft project" onkeydown="if(event.key==='Enter')loadProject()">
     <button class="btn" id="btnLoad" onclick="loadProject()">Load</button>
+    <span class="input-label">Loops</span>
+    <input type="number" class="loops-input" id="maxLoops" value="100" min="1" max="9999" title="Maximum development loops">
     <button class="btn btn-primary" id="btnStart" onclick="startDobby()">&#9654; Start</button>
     <button class="btn btn-danger" id="btnStop" onclick="stopDobby()" disabled>&#9632; Stop</button>
   </div>
@@ -430,10 +439,11 @@ async function ensureProjectLoaded() {
 async function startDobby() {
   const path = document.getElementById('projectPath').value.trim();
   if (!path) { toast('Enter a project path first', 'error'); return; }
+  const maxLoops = parseInt(document.getElementById('maxLoops').value) || 100;
   const data = await api('/api/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ project_path: path })
+    body: JSON.stringify({ project_path: path, max_loops: maxLoops })
   });
   if (data && data.ok) {
     projectLoaded = true;

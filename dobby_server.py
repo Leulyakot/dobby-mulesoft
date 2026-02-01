@@ -256,7 +256,8 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
 
         body = self.read_body()
         proj = body.get("project_path", "").strip()
-        logger.info(f"start: project_path={proj!r}")
+        max_loops = body.get("max_loops", None)
+        logger.info(f"start: project_path={proj!r}, max_loops={max_loops}")
 
         if not proj:
             self.send_json({"ok": False, "error": "No project path provided"}, 400)
@@ -301,9 +302,14 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             stderr_path = os.path.join(proj, LOG_DIR, "dobby_stderr.log")
             os.makedirs(os.path.dirname(stderr_path), exist_ok=True)
             stderr_file = open(stderr_path, "w", encoding="utf-8")
+            # Pass max_loops as env var if provided from UI
+            env = os.environ.copy()
+            if max_loops is not None:
+                env["DOBBY_MAX_LOOPS"] = str(int(max_loops))
             dobby_process = subprocess.Popen(
                 ["bash", loop_script, "--snap"],
                 cwd=project_path,
+                env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=stderr_file,
                 preexec_fn=os.setsid,
