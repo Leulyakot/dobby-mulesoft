@@ -355,11 +355,15 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         if not os.path.isabs(proj):
             proj = os.path.abspath(proj)
 
-        # Check the base directory exists
+        # Create the project directory if it doesn't exist
         if not os.path.isdir(proj):
-            logger.warning(f"load: directory does not exist: {proj}")
-            self.send_json({"ok": False, "error": f"Directory does not exist: {proj}"}, 400)
-            return
+            logger.info(f"load: creating project directory: {proj}")
+            try:
+                os.makedirs(proj, exist_ok=True)
+            except Exception as e:
+                logger.error(f"load: failed to create directory: {e}")
+                self.send_json({"ok": False, "error": f"Cannot create directory: {proj} ({e})"}, 400)
+                return
 
         # Auto-create .dobby structure if missing
         dobby_dir = os.path.join(proj, DOBBY_DIR)
