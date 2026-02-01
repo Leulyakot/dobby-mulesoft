@@ -116,7 +116,7 @@ update_status() {
   "api_calls": ${api_calls},
   "completion_percentage": ${completion_pct},
   "current_task": "${current_task}",
-  "last_snap": "$(date -Iseconds)",
+  "last_snap": "$(date '+%Y-%m-%dT%H:%M:%S%z')",
   "is_free": true,
   "master_pleased": false,
   "circuit_breaker": "${circuit_breaker_state}",
@@ -413,10 +413,18 @@ snap_fingers() {
     record_api_call
 
     # Execute Claude Code
-    # Using timeout to prevent hanging
+    # Using timeout to prevent hanging (macOS-compatible)
     local timeout_duration=$((60 * 10))  # 10 minutes max per snap
 
-    if timeout "$timeout_duration" claude --print "$prompt" > "$output_file" 2>&1; then
+    # Use timeout or gtimeout (macOS via brew), fallback to no timeout
+    local timeout_cmd=""
+    if command -v timeout &>/dev/null; then
+        timeout_cmd="timeout $timeout_duration"
+    elif command -v gtimeout &>/dev/null; then
+        timeout_cmd="gtimeout $timeout_duration"
+    fi
+
+    if $timeout_cmd claude --print "$prompt" > "$output_file" 2>&1; then
         log_dobby "SUCCESS" "Magic completed successfully!"
         return 0
     else
@@ -552,7 +560,11 @@ reset_dobby() {
 
     # Reset @magic_plan.md tasks to unchecked (preserve the file)
     if [[ -f "$MAGIC_PLAN" ]]; then
-        sed -i 's/- \[x\]/- [ ]/g' "$MAGIC_PLAN"
+        if [[ "$(uname)" == "Darwin" ]]; then
+            sed -i '' 's/- \[x\]/- [ ]/g' "$MAGIC_PLAN"
+        else
+            sed -i 's/- \[x\]/- [ ]/g' "$MAGIC_PLAN"
+        fi
     fi
 
     echo -e "${GREEN}Dobby has been reset! Ready for new orders.${NC}"
