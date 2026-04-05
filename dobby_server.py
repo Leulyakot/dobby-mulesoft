@@ -35,6 +35,7 @@ SERVER_LOG_FILE = os.path.join(
 project_path = None
 dobby_process = None
 server_dir = os.path.dirname(os.path.abspath(__file__))
+_state_lock = threading.Lock()  # Guards project_path and dobby_process
 
 # ── Logging setup ──
 logger = logging.getLogger("dobby-server")
@@ -56,9 +57,11 @@ logger.addHandler(_ch)
 
 
 def resolve_project_file(rel_path):
-    """Resolve a file path relative to the active project."""
-    if project_path:
-        return os.path.join(project_path, rel_path)
+    """Resolve a file path relative to the active project (thread-safe snapshot)."""
+    with _state_lock:
+        base = project_path
+    if base:
+        return os.path.join(base, rel_path)
     return None
 
 
@@ -118,11 +121,17 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             logger.error(f"File not found: {filepath}")
             self.send_error(404)
 
+    MAX_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
+
     def read_body(self):
         """Read request body as JSON."""
         length = int(self.headers.get("Content-Length", 0))
         if length == 0:
             return {}
+        if length > self.MAX_BODY_BYTES:
+            logger.warning(f"read_body: request body too large ({length} bytes)")
+            self.send_json({"ok": False, "error": "Request body too large"}, 413)
+            return None
         raw = self.rfile.read(length)
         try:
             return json.loads(raw.decode("utf-8"))
@@ -196,8 +205,11 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
     # ── API Handlers ──
 
     def handle_get_status(self):
-        global project_path
-        status_path = resolve_project_file(STATUS_FILE)
+        with _state_lock:
+            snap_project_path = project_path
+            snap_process = dobby_process
+
+        status_path = resolve_project_file(STATUS_FILE) if snap_project_path else None
         data = read_json_safe(status_path) if status_path else {}
 
         # Map dobby_loop.sh key ("dobby_status") to what the UI expects ("status")
@@ -205,7 +217,7 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             data["status"] = data.pop("dobby_status")
 
         # Enrich with computed fields
-        plan_path = resolve_project_file(PLAN_FILE)
+        plan_path = resolve_project_file(PLAN_FILE) if snap_project_path else None
         plan_content = read_file_safe(plan_path)
         done = plan_content.count("[x]") + plan_content.count("[X]")
         total = done + plan_content.count("[ ]")
@@ -219,11 +231,11 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         data["tasks_complete"] = done
         data["tasks_total"] = total
         data["progress"] = round((done / total) * 100) if total > 0 else 0
-        data["project_path"] = project_path or ""
+        data["project_path"] = snap_project_path or ""
 
         # Check if process is still running
-        if dobby_process and dobby_process.poll() is not None:
-            data["status"] = "complete" if dobby_process.returncode == 0 else "error"
+        if snap_process and snap_process.poll() is not None:
+            data["status"] = "complete" if snap_process.returncode == 0 else "error"
 
         self.send_json(data)
 
@@ -255,6 +267,8 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         global project_path, dobby_process
 
         body = self.read_body()
+        if body is None:
+            return
         proj = body.get("project_path", "").strip()
         max_loops = body.get("max_loops", None)
         logger.info(f"start: project_path={proj!r}, max_loops={max_loops}")
@@ -266,6 +280,7 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         proj = os.path.expanduser(proj)
         if not os.path.isabs(proj):
             proj = os.path.abspath(proj)
+        proj = os.path.realpath(proj)  # Resolve symlinks / path traversal
 
         dobby_dir = os.path.join(proj, DOBBY_DIR)
         if not os.path.isdir(dobby_dir):
@@ -273,11 +288,11 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": f"No .dobby directory found in {proj}. Run dobby-setup first or click Load to create one."}, 400)
             return
 
-        if dobby_process and dobby_process.poll() is None:
-            self.send_json({"ok": False, "error": "Dobby is already running"}, 409)
-            return
-
-        project_path = proj
+        with _state_lock:
+            if dobby_process and dobby_process.poll() is None:
+                self.send_json({"ok": False, "error": "Dobby is already running"}, 409)
+                return
+            project_path = proj
 
         # Find dobby_loop.sh
         loop_script = None
@@ -297,25 +312,25 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
             return
 
         try:
-            logger.info(f"start: launching {loop_script} in {project_path}")
-            # Capture stderr for debugging loop failures
+            logger.info(f"start: launching {loop_script} in {proj}")
             stderr_path = os.path.join(proj, LOG_DIR, "dobby_stderr.log")
             os.makedirs(os.path.dirname(stderr_path), exist_ok=True)
-            stderr_file = open(stderr_path, "w", encoding="utf-8")
-            # Pass max_loops as env var if provided from UI
             env = os.environ.copy()
             if max_loops is not None:
                 env["DOBBY_MAX_LOOPS"] = str(int(max_loops))
-            dobby_process = subprocess.Popen(
-                ["bash", loop_script, "--snap"],
-                cwd=project_path,
-                env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=stderr_file,
-                preexec_fn=os.setsid,
-            )
-            logger.info(f"start: pid={dobby_process.pid}, stderr -> {stderr_path}")
-            self.send_json({"ok": True, "pid": dobby_process.pid})
+            with open(stderr_path, "w", encoding="utf-8") as stderr_file:
+                proc = subprocess.Popen(
+                    ["bash", loop_script, "--snap"],
+                    cwd=proj,
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=stderr_file,
+                    preexec_fn=os.setsid,
+                )
+            with _state_lock:
+                dobby_process = proc
+            logger.info(f"start: pid={proc.pid}, stderr -> {stderr_path}")
+            self.send_json({"ok": True, "pid": proc.pid})
         except Exception as e:
             logger.error(f"start: failed to launch: {e}\n{traceback.format_exc()}")
             self.send_json({"ok": False, "error": str(e)}, 500)
@@ -323,27 +338,32 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
     def handle_stop(self):
         global dobby_process
 
-        if not dobby_process or dobby_process.poll() is not None:
-            self.send_json({"ok": False, "error": "Dobby is not running"}, 400)
-            return
+        with _state_lock:
+            proc = dobby_process
+            if not proc or proc.poll() is not None:
+                self.send_json({"ok": False, "error": "Dobby is not running"}, 400)
+                return
 
         try:
-            logger.info(f"stop: killing pid={dobby_process.pid}")
-            os.killpg(os.getpgid(dobby_process.pid), signal.SIGTERM)
-            dobby_process.wait(timeout=10)
+            logger.info(f"stop: killing pid={proc.pid}")
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            proc.wait(timeout=10)
         except Exception:
             try:
-                os.killpg(os.getpgid(dobby_process.pid), signal.SIGKILL)
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
             except Exception:
                 pass
 
-        dobby_process = None
+        with _state_lock:
+            dobby_process = None
         self.send_json({"ok": True})
 
     def handle_load_project(self):
         global project_path
 
         body = self.read_body()
+        if body is None:
+            return
         proj = body.get("project_path", "").strip()
         logger.info(f"load: project_path={proj!r}")
 
@@ -354,6 +374,7 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
         proj = os.path.expanduser(proj)
         if not os.path.isabs(proj):
             proj = os.path.abspath(proj)
+        proj = os.path.realpath(proj)  # Resolve symlinks / path traversal
 
         # Create the project directory if it doesn't exist
         if not os.path.isdir(proj):
@@ -396,12 +417,15 @@ class DobbyHandler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": f"Failed to create .dobby directory: {e}"}, 500)
                 return
 
-        project_path = proj
-        logger.info(f"load: project set to {project_path}")
-        self.send_json({"ok": True, "project_path": project_path})
+        with _state_lock:
+            project_path = proj
+        logger.info(f"load: project set to {proj}")
+        self.send_json({"ok": True, "project_path": proj})
 
     def handle_save_orders(self):
         body = self.read_body()
+        if body is None:
+            return
         content = body.get("content", "")
 
         orders_path = resolve_project_file(ORDERS_FILE)
@@ -439,28 +463,40 @@ class ThreadedServer(http.server.HTTPServer):
 
 
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT
+    import argparse
+    parser = argparse.ArgumentParser(description="Dobby UI Server")
+    parser.add_argument("port", nargs="?", type=int, default=DEFAULT_PORT)
+    parser.add_argument("project", nargs="?", default=None)
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1). Use 0.0.0.0 only on trusted networks.",
+    )
+    args = parser.parse_args()
+
+    port = args.port
+    host = args.host
     global project_path
 
-    # Accept optional project path as second arg
-    if len(sys.argv) > 2:
-        p = os.path.expanduser(sys.argv[2])
+    if args.project:
+        p = os.path.expanduser(args.project)
         if os.path.isdir(os.path.join(p, DOBBY_DIR)):
             project_path = os.path.abspath(p)
 
-    logger.info(f"Server starting on port {port}")
+    logger.info(f"Server starting on {host}:{port}")
     logger.info(f"Log file: {SERVER_LOG_FILE}")
     if project_path:
         logger.info(f"Project: {project_path}")
 
-    server = ThreadedServer(("0.0.0.0", port), DobbyHandler)
+    server = ThreadedServer((host, port), DobbyHandler)
 
+    display_host = "localhost" if host == "127.0.0.1" else host
     print(f"""
 \033[36m
     .---.
    | ^ ^ |   Dobby UI Server
    |  >  |   ───────────────
-    \\___/    http://localhost:{port}
+    \\___/    http://{display_host}:{port}
      |||
     /|||\\
 \033[0m""")
@@ -476,9 +512,11 @@ def main():
         print("\n  Dobby UI server stopped.")
         logger.info("Server stopped by user")
         # Clean up dobby process if running
-        if dobby_process and dobby_process.poll() is None:
+        with _state_lock:
+            proc = dobby_process
+        if proc and proc.poll() is None:
             try:
-                os.killpg(os.getpgid(dobby_process.pid), signal.SIGTERM)
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
             except Exception:
                 pass
         server.shutdown()

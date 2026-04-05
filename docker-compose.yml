@@ -1,0 +1,22 @@
+services:
+  dobby:
+    build: .
+    # Bind only to localhost on the host — never expose directly to the network.
+    ports:
+      - "127.0.0.1:3131:3131"
+    volumes:
+      # Mount your MuleSoft projects directory into the container.
+      # Inside the container every project lives under /workspace/<project-name>.
+      # When you click "Load" in the UI, use that path (e.g. /workspace/my-project).
+      - "${DOBBY_WORKSPACE:-./workspace}:/workspace"
+    environment:
+      # Required: your Anthropic API key for the Claude Code CLI
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Optional overrides (all have sensible defaults)
+      - DOBBY_MAX_LOOPS=${DOBBY_MAX_LOOPS:-100}
+      - DOBBY_LOOP_DELAY=${DOBBY_LOOP_DELAY:-5}
+      - DOBBY_MAX_API_CALLS=${DOBBY_MAX_API_CALLS:-100}
+      - DOBBY_SNAP_LOG_KEEP=${DOBBY_SNAP_LOG_KEEP:-20}
+    restart: unless-stopped
+    # Give the container enough memory for Claude Code subprocesses
+    mem_limit: 1g

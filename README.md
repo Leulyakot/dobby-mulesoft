@@ -1,4 +1,4 @@
-# DOBBY - The Autonomous MuleSoft Development Elf
+# Dobby — Autonomous MuleSoft Development Elf
 
 ```
 +============================================================+
@@ -17,271 +17,462 @@
 +============================================================+
 ```
 
-**Dobby** is an autonomous MuleSoft integration development agent powered by Claude Code. Give Dobby a specification (the "sock"), and Dobby works tirelessly and autonomously until your integration is complete!
+**Dobby** is an autonomous agent that builds MuleSoft integrations for you. Write a plain-English specification — Dobby calls [Claude Code](https://github.com/anthropics/claude-code) in a loop, generating MuleSoft XML flows, DataWeave transformations, and MUnit tests, iterating until the integration is complete.
 
-Named after Harry Potter's loyal house-elf, Dobby embodies dedication and autonomous service. Just as Dobby was freed by receiving a sock, Dobby the agent is "freed" to work autonomously when given your integration specification.
+Named after Harry Potter's loyal house-elf: just as Dobby was freed by a sock, Dobby the agent is freed to work when you hand it a specification.
 
-## Features
+---
 
-- **Autonomous Development Loop** - Dobby continuously iterates on your MuleSoft project until complete
-- **Intelligent Exit Detection** - Automatically detects when the integration is done
-- **Rate Limiting** - Respects API limits with automatic cooldown
-- **Circuit Breaker** - Detects stuck loops and prevents infinite cycling
-- **Live Monitoring** - Real-time dashboard showing progress
-- **Web UI** - Futuristic black web dashboard for browser-based control
-- **Beautiful Terminal UI** - ASCII art and colorful status indicators
-- **MuleSoft Best Practices** - Generates API-led architecture, DataWeave, and MUnit tests
+## Table of Contents
 
-## Quick Start
+- [How It Works](#how-it-works)
+- [Quick Start](#quick-start)
+- [Docker](#docker)
+- [Web UI Walkthrough](#web-ui-walkthrough)
+- [Writing a Specification](#writing-a-specification)
+- [Sample Specification](#sample-specification)
+- [Project Structure](#project-structure)
+- [Commands](#commands)
+- [Configuration](#configuration)
+- [Monitoring](#monitoring)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Requirements](#requirements)
 
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/dobby-mulesoft.git
-cd dobby-mulesoft
-
-# Install globally
-./install.sh
-```
-
-### Create a Project
-
-```bash
-# Create a new MuleSoft project
-dobby-setup customer-sync
-
-# Navigate to the project
-cd customer-sync
-```
-
-### Configure Your Integration
-
-Edit `.dobby/MASTER_ORDERS.md` with your integration requirements:
-
-```bash
-# Open the specification file
-nano .dobby/MASTER_ORDERS.md
-# or
-code .dobby/MASTER_ORDERS.md
-```
-
-### Start Dobby
-
-```bash
-# Start autonomous development
-dobby --snap
-
-# In another terminal, monitor progress
-dobby-monitor
-```
+---
 
 ## How It Works
 
 ```
-User gives Dobby a specification ("the sock") -> Dobby is FREE to work autonomously!
-
-+--------------------------------------------------------------+
-|  1. READ specification (MASTER_ORDERS.md)                    |
-|  2. PLAN tasks (@magic_plan.md)                              |
-|  3. SNAP! Execute Claude Code                                |
-|  4. GENERATE MuleSoft flows, DataWeave, tests                |
-|  5. ANALYZE completion signals                               |
-|  6. REPEAT until integration complete                        |
-+--------------------------------------------------------------+
+You write MASTER_ORDERS.md
+        │
+        ▼
+  dobby --snap
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│              Dobby Loop                   │
+│                                           │
+│  1. Read MASTER_ORDERS.md + @magic_plan   │
+│  2. Build prompt for Claude Code          │
+│  3. claude --print "$prompt"              │
+│  4. Claude writes MuleSoft files          │
+│  5. Check completion signals              │
+│  6. Check circuit breaker                 │
+│  7. Check rate limit                      │
+│  8. Update dobby_status.json              │
+│  9. Sleep 5s → repeat                     │
+└───────────────────────────────────────────┘
+        │
+        ▼
+  Integration complete ✓
+  (or max loops / EXIT_SIGNAL / all tasks [x])
 ```
 
-### The Loop
+### The Loop in Detail
 
-1. **Read**: Dobby reads `MASTER_ORDERS.md` for integration requirements
-2. **Plan**: Creates and updates tasks in `@magic_plan.md`
-3. **Snap**: Executes Claude Code to generate MuleSoft components
-4. **Track**: Monitors file changes and completion signals
-5. **Decide**: Continues looping or exits when done
+Each iteration ("snap") does the following:
 
-### Exit Detection
+| Step | What happens |
+|------|-------------|
+| **Read** | Loads `MASTER_ORDERS.md` (your spec) and `@magic_plan.md` (task checklist) |
+| **Prompt** | Combines spec + plan + loop context into a single prompt |
+| **Snap** | Runs `claude --print "$prompt"` — Claude reads and writes files in your project |
+| **Detect** | Checks Claude's output for `EXIT_SIGNAL`, completion keywords, or all `[x]` tasks |
+| **Guard** | Circuit breaker opens if no files changed for 3 consecutive loops |
+| **Rate** | Pauses automatically if API call limit for the hour is reached |
+| **Status** | Writes `dobby_status.json` so the monitor and web UI can show live progress |
 
-Dobby intelligently detects when to stop:
+### What Dobby Generates
 
-- Completion keywords ("complete", "done", "finished")
-- Explicit `EXIT_SIGNAL` from Claude
-- All tasks in `@magic_plan.md` marked `[x]`
-- Maximum loops reached
-- Circuit breaker tripped (stuck loop detection)
-
-## Project Structure
-
-When you run `dobby-setup`, this structure is created:
+Dobby follows MuleSoft's **API-led connectivity** pattern:
 
 ```
-my-integration/
-├── .dobby/
-│   ├── MASTER_ORDERS.md       # Your integration requirements ("the sock")
-│   ├── @magic_plan.md         # Task tracking and progress
-│   ├── @AGENT.md              # Instructions for Claude Code
-│   ├── house-elf-magic/       # Logs directory
-│   │   └── dobby.log          # Execution logs
-│   ├── blueprints/            # API specifications
-│   ├── sock-drawer/           # Additional specifications
-│   └── dobby_status.json      # Current status
-├── src/
-│   ├── main/
-│   │   ├── mule/              # MuleSoft flow XML files
-│   │   └── resources/
-│   │       ├── dwl/           # DataWeave transformations
-│   │       └── api/           # RAML specifications
-│   └── test/
-│       └── munit/             # MUnit test files
-├── pom.xml                    # Maven configuration
-└── README.md                  # Project documentation
+Experience API  ──  consumer-facing REST endpoints (RAML)
+      │
+Process API     ──  business logic, orchestration, DataWeave transforms
+      │
+System API      ──  raw connectors (Salesforce, databases, HTTP, etc.)
 ```
 
-## Commands
+Each layer gets:
+- MuleSoft flow XML (`src/main/mule/`)
+- DataWeave scripts (`src/main/resources/dwl/`)
+- MUnit tests (`src/test/munit/`)
 
-### `dobby`
+### Safeguards
 
-Main command for running Dobby.
+| Safeguard | Behaviour |
+|-----------|-----------|
+| **Circuit breaker** | Opens after 3 loops with no file changes — stops stuck loops |
+| **Rate limiter** | Caps Claude API calls per hour; waits automatically when reached |
+| **Max loops** | Hard ceiling (default 100) regardless of completion state |
+| **Timeout** | Each Claude invocation times out at 10 minutes |
+
+---
+
+## Quick Start
+
+### 1. Prerequisites
 
 ```bash
-dobby --snap      # Start autonomous development loop
-dobby --status    # Show current project status
-dobby --reset     # Reset progress and start over
-dobby --help      # Show help
-dobby --version   # Show version
+# Claude Code CLI (required)
+npm install -g @anthropic-ai/claude-code
+
+# Recommended
+brew install jq tmux      # macOS
+# apt install jq tmux     # Linux
 ```
 
-### `dobby-setup`
-
-Create new MuleSoft projects.
+### 2. Install Dobby
 
 ```bash
-dobby-setup <project-name> [target-directory]
-
-# Examples
-dobby-setup customer-sync
-dobby-setup order-api /path/to/projects
+git clone https://github.com/yourusername/dobby-mulesoft.git
+cd dobby-mulesoft
+./install.sh
 ```
 
-### `dobby-monitor`
-
-Live terminal monitoring dashboard.
+### 3. Create a project
 
 ```bash
-dobby-monitor           # Monitor current directory
-dobby-monitor --once    # Show status once and exit
-dobby-monitor --tmux    # Start in tmux session
+dobby-setup my-integration
+cd my-integration
 ```
 
-### `dobby-ui`
-
-Web-based UI dashboard. Opens a lightweight local web server with a futuristic dark interface.
+### 4. Write your specification
 
 ```bash
-dobby-ui                          # Start on default port 3131
-dobby-ui --port 8080              # Start on custom port
-dobby-ui --open ./my-project      # Start and auto-open browser
+# Edit the spec in your preferred editor
+code .dobby/MASTER_ORDERS.md
 ```
 
-Features:
-- Real-time status monitoring with auto-refresh
-- Edit MASTER_ORDERS.md directly in the browser
-- View task plan with completion tracking
-- Live log streaming with color-coded entries
-- Start/stop Dobby from the browser
-- Zero dependencies (Python 3 stdlib only)
+See [Writing a Specification](#writing-a-specification) and the [Sample Specification](#sample-specification) below.
 
-## Configuration
+### 5. Run
 
-### Environment Variables
+**Terminal mode:**
+```bash
+# Terminal 1 — run the loop
+dobby --snap
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DOBBY_MAX_LOOPS` | 100 | Maximum development loops |
-| `DOBBY_LOOP_DELAY` | 5 | Seconds between loops |
-| `DOBBY_MAX_API_CALLS` | 100 | API calls per hour limit |
-| `DOBBY_RATE_COOLDOWN` | 3600 | Rate limit cooldown (seconds) |
-| `DOBBY_MAX_NO_CHANGE` | 3 | Max loops without file changes |
-| `DOBBY_MIN_COMPLETION` | 4 | Min completion signals to exit |
-| `DOBBY_VERBOSE` | true | Show verbose output |
-| `DOBBY_MONITOR_REFRESH` | 2 | Monitor refresh interval |
+# Terminal 2 — watch progress
+dobby-monitor
+```
 
-### MASTER_ORDERS.md Format
+**Web UI mode:**
+```bash
+# Start the web dashboard
+dobby-ui --open
 
-The specification file should include:
+# Then click Load, enter your project path, and click Start
+```
+
+---
+
+## Docker
+
+Run Dobby in a container — no local installation required.
+
+### Prerequisites
+
+- Docker + Docker Compose
+- Your Anthropic API key
+
+### Start
+
+```bash
+# Set your API key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Create a workspace directory for your projects
+mkdir -p workspace/my-integration
+
+# Build and run
+docker compose up --build
+```
+
+Open **http://localhost:3131** in your browser.
+
+### Using the UI from Docker
+
+After the container is running:
+
+1. Click **Load** in the web UI
+2. Enter `/workspace/my-integration` as the project path (this maps to `./workspace/my-integration` on your host)
+3. Edit the MASTER_ORDERS.md in the browser editor
+4. Click **Start**
+
+### Custom workspace path
+
+```bash
+DOBBY_WORKSPACE=/path/to/your/projects docker compose up
+```
+
+### Configuration via environment
+
+```bash
+# docker-compose.yml already passes these; override as needed:
+DOBBY_MAX_LOOPS=50 DOBBY_LOOP_DELAY=3 docker compose up
+```
+
+### Stop
+
+```bash
+docker compose down
+```
+
+---
+
+## Web UI Walkthrough
+
+Start the web UI with `dobby-ui --open` (or via Docker at http://localhost:3131).
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  DOBBY                                          ● idle  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Project path: [ /path/to/my-integration    ] [Load]   │
+│                                                         │
+│  Max loops: [100]          [▶ Start]  [■ Stop]          │
+│                                                         │
+│  Progress ████████████░░░░░░░░░░░░░░░ 42%               │
+│  Tasks: 5 / 12   Loop: 8 / 100   API calls: 8          │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│  MASTER_ORDERS  [▼ expand]                              │
+│  LOG STREAM                                             │
+│  [2024-01-15 10:32:01] [SNAP] Creating MuleSoft magic!  │
+│  [2024-01-15 10:32:45] [SUCCESS] Created flow XML       │
+│  [2024-01-15 10:32:45] [INFO] Tasks: 5 done, 7 remain   │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Workflow:**
+1. Enter your project path and click **Load** — creates `.dobby/` structure if missing
+2. Expand **MASTER_ORDERS** to write or paste your specification directly in the browser
+3. Set **Max loops** (lower = faster feedback for testing, e.g. `5`)
+4. Click **Start** — the loop begins and the log stream updates live
+5. Click **Stop** at any time to interrupt cleanly
+
+The UI polls every 2 seconds and requires no page refresh.
+
+---
+
+## Writing a Specification
+
+`MASTER_ORDERS.md` is plain Markdown. The more specific you are, the better Dobby's output.
+
+### Essential sections
 
 ```markdown
 # Master's Integration Orders
 
 ## What Dobby Must Build
-- Project name and type
-- Integration overview
+Brief description of the integration.
+
+## Runtime Configuration
+MuleSoft Runtime Version, Java version, Maven version.
 
 ## Source Systems
-- System details
-- Connection information
-- Data requirements
+What data comes from where, how to connect, what fields matter.
 
 ## Target Systems
-- Destination details
-- Output requirements
+Where data goes, what the output format should look like.
 
 ## Data Transformations
-- Input/output schemas
-- Transformation logic
+Input JSON → output JSON examples with field mapping logic.
 
 ## Business Rules
-- Validation rules
-- Processing logic
+Validation logic, deduplication, error handling behaviour.
 
 ## Acceptance Criteria
-- [ ] Checkboxes for completion tracking
+- [ ] Checkbox for each deliverable  ← Dobby marks these [x] as it works
 ```
 
-See `templates/MASTER_ORDERS_example.md` for a complete example.
+### Tips for better output
 
-## What Dobby Generates
+| Do | Don't |
+|----|-------|
+| Provide sample JSON input/output | Leave transformations vague ("transform the data") |
+| List exact field names | Use generic names ("some fields") |
+| Specify runtime versions | Omit version numbers |
+| Write checkbox acceptance criteria | Use prose-only completion criteria |
+| Keep scope focused | Pack 10 integrations into one spec |
 
-### MuleSoft Components
-
-- **System APIs**: Connector configurations for Salesforce, databases, REST APIs
-- **Process APIs**: Business logic, orchestration, transformation flows
-- **Experience APIs**: Consumer-facing REST endpoints
-
-### DataWeave Transformations
-
-```dataweave
-%dw 2.0
-output application/json
 ---
+
+## Sample Specification
+
+A minimal spec that requires no external systems — good for a first test run:
+
+```markdown
+# Master's Integration Orders
+
+## What Dobby Must Build
+**Project Name**: Hello World REST API
+**Integration Type**: Experience API only
+
+## Runtime Configuration
+**MuleSoft Runtime Version**: 4.8.0
+**Java Version**: 17
+**Maven Version**: 3.9.6
+**Mule Maven Plugin Version**: 4.3.0
+**MUnit Version**: 3.3.0
+
+## Integration Overview
+A simple HTTP REST API that:
+- Exposes GET /greet
+- Accepts optional `name` query parameter
+- Returns a JSON greeting
+- Defaults name to "World" when omitted
+
+## API Specification
+
+### GET /greet?name=Dobby → 200 OK
+```json
 {
-  customers: payload map {
-    customerId: $.Id,
-    fullName: $.Name,
-    email: $.Email default "unknown@example.com"
-  }
+  "message": "Hello, Dobby!",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": "ok"
 }
 ```
 
-### MUnit Tests
-
-```xml
-<munit:test name="test-customer-retrieval">
-    <munit:behavior>
-        <munit-tools:mock-when processor="salesforce:query">
-            <munit-tools:return-payload value="#[[{Id: '001', Name: 'Test'}]]"/>
-        </munit-tools:mock-when>
-    </munit:behavior>
-    <munit:execution>
-        <flow-ref name="retrieve-customers"/>
-    </munit:execution>
-    <munit:validation>
-        <munit-tools:assert-that expression="#[sizeOf(payload)]"
-                                 is="#[MunitTools::equalTo(1)]"/>
-    </munit:validation>
-</munit:test>
+### GET /greet (no param) → 200 OK
+```json
+{
+  "message": "Hello, World!",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": "ok"
+}
 ```
 
-## Monitoring Dashboard
+## DataWeave Logic
+- message: `"Hello, " ++ (attributes.queryParams.name default "World") ++ "!"`
+- timestamp: current datetime in ISO 8601
+- status: always "ok"
+
+## Acceptance Criteria
+- [ ] HTTP Listener on 0.0.0.0:8081, path /greet
+- [ ] DataWeave transforms query param into greeting JSON
+- [ ] Default name "World" when param is absent
+- [ ] MUnit test: GET /greet?name=Dobby → "Hello, Dobby!"
+- [ ] MUnit test: GET /greet → "Hello, World!"
+- [ ] Global error handler returning 500 on exceptions
+- [ ] All MUnit tests pass
+```
+
+Once Dobby finishes, test it:
+```bash
+curl "http://localhost:8081/greet?name=Dobby"
+# → {"message":"Hello, Dobby!","timestamp":"...","status":"ok"}
+```
+
+For a more complex real-world example (Salesforce → MySQL → NetSuite), see [`templates/MASTER_ORDERS_example.md`](templates/MASTER_ORDERS_example.md).
+
+---
+
+## Project Structure
+
+```
+my-integration/
+├── .dobby/
+│   ├── MASTER_ORDERS.md        # Your spec ("the sock")
+│   ├── @magic_plan.md          # Task checklist — Dobby marks [x] as it works
+│   ├── @AGENT.md               # System prompt sent to Claude each loop
+│   ├── dobby_status.json       # Live status (read by monitor + web UI)
+│   ├── house-elf-magic/
+│   │   ├── dobby.log           # Main execution log
+│   │   ├── dobby_stderr.log    # Subprocess stderr (debug)
+│   │   └── snap_N.log          # Claude output per loop (last 20 kept)
+│   ├── blueprints/             # RAML / API specs
+│   └── sock-drawer/            # Additional reference docs
+├── src/
+│   ├── main/
+│   │   ├── mule/               # Flow XML files
+│   │   └── resources/
+│   │       ├── dwl/            # DataWeave transformations
+│   │       └── api/            # RAML specifications
+│   └── test/
+│       └── munit/              # MUnit test suites
+├── pom.xml                     # Maven project descriptor
+└── mule-artifact.json          # MuleSoft artifact metadata
+```
+
+---
+
+## Commands
+
+### `dobby`
+
+```bash
+dobby --snap        # Start the autonomous development loop
+dobby --status      # Show current project status
+dobby --reset       # Clear logs and uncheck all plan tasks
+dobby --help
+dobby --version
+```
+
+### `dobby-setup`
+
+Scaffolds a new MuleSoft project with all required files.
+
+```bash
+dobby-setup <project-name> [target-directory]
+
+dobby-setup my-api
+dobby-setup order-sync /path/to/projects
+```
+
+### `dobby-monitor`
+
+Live terminal dashboard. Run in a second terminal while `dobby --snap` is running.
+
+```bash
+dobby-monitor            # Auto-refresh every 2s
+dobby-monitor --once     # Print status once and exit
+dobby-monitor --tmux     # Launch inside a tmux session
+```
+
+### `dobby-ui`
+
+Lightweight web dashboard (Python 3, zero dependencies).
+
+```bash
+dobby-ui                        # Start on port 3131
+dobby-ui --port 8080            # Custom port
+dobby-ui --open                 # Start and open browser automatically
+dobby-ui --open ./my-project    # Pre-load a project on start
+```
+
+---
+
+## Configuration
+
+All settings are environment variables with sensible defaults.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DOBBY_MAX_LOOPS` | `100` | Maximum loop iterations |
+| `DOBBY_LOOP_DELAY` | `5` | Seconds to sleep between loops |
+| `DOBBY_MAX_API_CALLS` | `100` | Max Claude API calls per hour |
+| `DOBBY_RATE_COOLDOWN` | `3600` | Rate limit cooldown window (seconds) |
+| `DOBBY_MAX_NO_CHANGE` | `3` | Loops with no file change before circuit breaker opens |
+| `DOBBY_MIN_COMPLETION` | `4` | Completion signal threshold to auto-exit |
+| `DOBBY_VERBOSE` | `true` | Print log lines to the terminal |
+| `DOBBY_SNAP_LOG_KEEP` | `20` | Number of per-loop snap logs to retain |
+
+Example — fast test run with tight limits:
+
+```bash
+DOBBY_MAX_LOOPS=10 DOBBY_LOOP_DELAY=2 dobby --snap
+```
+
+---
+
+## Monitoring
+
+### Terminal dashboard
 
 ```
 +============================================================+
@@ -295,87 +486,160 @@ output application/json
          |||
         /|||\
 
-+------------------------------------------------------------+
-|                        STATUS                              |
-+------------------------------------------------------------+
-
-  Status:            working              Loop:      12/100
-  API Calls:         45                   Circuit:   closed
-  Current Task:      Building Process API Tasks:     8/15
+  Status:         working          Loop:     12 / 100
+  API Calls:      45               Circuit:  closed
+  Current Task:   Building Process API
+  Tasks:          8 / 15
 
   Progress:
-  [████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 53%
+  [████████████████████░░░░░░░░░░░░░░░░░░░░] 53%
 
-+------------------------------------------------------------+
-|                    RECENT ACTIVITY                         |
-+------------------------------------------------------------+
-
+  Recent logs:
   [SUCCESS] Created customer-system-api.xml
-  [SNAP] Generated address-transform.dwl
-  [SUCCESS] All MUnit tests passing
+  [SNAP]    Generated address-transform.dwl
+  [INFO]    Tasks: 8 done, 7 remaining
 ```
+
+### Log files
+
+| File | Contents |
+|------|----------|
+| `.dobby/house-elf-magic/dobby.log` | Main execution log, every loop |
+| `.dobby/house-elf-magic/snap_N.log` | Full Claude output for loop N |
+| `.dobby/house-elf-magic/dobby_stderr.log` | Subprocess stderr |
+| `dobby_server.log` | Web UI server log |
+
+```bash
+# Follow the main log live
+tail -f .dobby/house-elf-magic/dobby.log
+
+# Read what Claude said in loop 5
+cat .dobby/house-elf-magic/snap_5.log
+```
+
+---
+
+## Testing
+
+The test suite covers the HTTP API and all shell utility functions.
+
+```bash
+# Python tests — all API endpoints (35 tests)
+python3 -m unittest discover -s tests -p "test_server.py" -v
+
+# Shell tests — loop logic, circuit breaker, rate limiter, completion detection (46 tests)
+bash tests/test_loop.sh
+```
+
+### What is tested
+
+**`tests/test_server.py`** (Python, 35 tests)
+
+- Every API endpoint: `/api/status`, `/api/logs`, `/api/orders`, `/api/plan`, `/api/config`
+- `POST /api/load` — project creation, missing path, empty body
+- `POST /api/start` — missing path, missing `.dobby` directory
+- `POST /api/stop` — not-running guard
+- Request body > 10 MB → 413
+- CORS headers + OPTIONS preflight
+- Unknown routes → 404
+- UI file serving
+
+**`tests/test_loop.sh`** (Bash, 46 tests)
+
+- `init_project_paths` — all 6 path variables
+- `validate_project` — missing `.dobby`, missing `MASTER_ORDERS.md`, missing `claude` CLI
+- Rate limiter — under/at limit, counter, expired timestamps
+- Circuit breaker — state transitions, opens after 3 no-change loops, closes on success
+- `all_tasks_done` — all `[x]`, mixed, empty plan
+- `calculate_completion` — 0%, 50%, 100%
+- `check_exit_conditions` — EXIT_SIGNAL, signal threshold, max loops, all tasks done
+- `update_status` — JSON written with correct values
+- `rotate_snap_logs` — keeps N logs, idempotent, no-op under limit
+
+---
 
 ## Troubleshooting
 
-### Dobby is stuck (circuit breaker opens)
+### Circuit breaker opened — Dobby is stuck
 
-1. Check logs: `cat .dobby/house-elf-magic/dobby.log`
-2. Review `MASTER_ORDERS.md` for clarity
-3. Reset and try again: `dobby --reset && dobby --snap`
+Claude ran but made no file changes for 3 consecutive loops.
+
+```bash
+# Read what Claude was saying
+cat .dobby/house-elf-magic/snap_$(ls .dobby/house-elf-magic/snap_*.log | wc -l | tr -d ' ').log
+
+# Common fixes:
+# 1. Make MASTER_ORDERS.md more specific (add JSON examples, exact field names)
+# 2. Reset and retry
+dobby --reset && dobby --snap
+```
 
 ### Rate limit reached
 
-Dobby automatically waits for the cooldown period. You can also:
-- Reduce `DOBBY_MAX_API_CALLS` environment variable
-- Wait for the rate limit window to reset
+Dobby waits automatically. To adjust the limit:
+```bash
+DOBBY_MAX_API_CALLS=50 dobby --snap
+```
 
 ### Claude Code not found
 
-Install the Claude Code CLI:
 ```bash
 npm install -g @anthropic-ai/claude-code
+claude --version   # verify
 ```
 
-### Not generating expected code
+### Output looks wrong / missing fields
 
-1. Make `MASTER_ORDERS.md` more specific
-2. Add example input/output in transformations
-3. List explicit acceptance criteria
+Add explicit JSON examples to your `MASTER_ORDERS.md`:
+```markdown
+## Data Transformations
 
-## Best Practices
+Input:
+```json
+{ "first_name": "Jane", "last_name": "Doe" }
+```
 
-### Writing Good Specifications
+Output:
+```json
+{ "fullName": "Jane Doe" }
+```
+```
 
-1. **Be Specific**: Include exact field names, data types, and formats
-2. **Provide Examples**: Show sample input and expected output
-3. **Define Acceptance Criteria**: Use checkboxes for clear completion tracking
-4. **Document Business Rules**: Explain validation and transformation logic
+### Web UI shows "No project loaded"
 
-### Monitoring Progress
+Click **Load** and enter the **absolute path** to your project directory (the folder containing `.dobby/`).
 
-1. Run `dobby-monitor` in a separate terminal
-2. Check `.dobby/house-elf-magic/dobby.log` for detailed logs
-3. Review `@magic_plan.md` for task progress
+### Docker: Claude can't authenticate
 
-### Optimizing Performance
+Make sure `ANTHROPIC_API_KEY` is set in your shell before running `docker compose up`:
+```bash
+echo $ANTHROPIC_API_KEY   # should print your key
+docker compose up
+```
 
-1. Set reasonable `DOBBY_MAX_LOOPS` based on project complexity
-2. Use `DOBBY_LOOP_DELAY` to balance speed and API usage
-3. Monitor circuit breaker state for stuck detection
+---
 
 ## Requirements
 
 ### Required
 
-- **Bash 4.0+**: Shell interpreter
-- **Claude Code CLI**: `npm install -g @anthropic-ai/claude-code`
+| Dependency | Install |
+|------------|---------|
+| Bash 4.0+ | Pre-installed on Linux; `brew install bash` on macOS |
+| Claude Code CLI | `npm install -g @anthropic-ai/claude-code` |
+| ANTHROPIC_API_KEY | Set in your environment |
 
-### Optional (Recommended)
+### Recommended
 
-- **Python 3**: For the web UI (`dobby-ui`)
-- **tmux**: For terminal monitoring dashboard
-- **jq**: For JSON processing
-- **git**: For version control
+| Dependency | Used for |
+|------------|----------|
+| Python 3 | Web UI (`dobby-ui`) |
+| jq | JSON parsing in scripts |
+| tmux | Background monitoring |
+| git | Version control of generated code |
+| Docker + Compose | Containerised deployment |
+
+---
 
 ## Contributing
 
@@ -383,7 +647,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 

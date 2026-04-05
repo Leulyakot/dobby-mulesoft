@@ -184,7 +184,7 @@ check_rate_limit() {
 # Record an API call
 record_api_call() {
     api_call_timestamps+=("$(date +%s)")
-    ((api_calls++))
+    api_calls=$((api_calls + 1))
 }
 
 # Wait for rate limit to clear
@@ -248,7 +248,7 @@ update_circuit_breaker() {
 
     # Check for no file changes
     if [[ "$current_hash" == "$last_file_hash" ]]; then
-        ((no_change_count++))
+        no_change_count=$((no_change_count + 1))
         log_dobby "WARN" "No file changes detected (${no_change_count}/${MAX_NO_CHANGE_LOOPS})"
 
         if [[ $no_change_count -ge $MAX_NO_CHANGE_LOOPS ]]; then
@@ -288,7 +288,7 @@ count_completion_signals() {
 
     for keyword in "${keywords[@]}"; do
         if grep -qi "$keyword" "$output_file" 2>/dev/null; then
-            ((signals++))
+            signals=$((signals + 1))
         fi
     done
 
@@ -302,8 +302,11 @@ all_tasks_done() {
     fi
 
     # Count incomplete tasks
-    local incomplete=$(grep -c "^\s*- \[ \]" "$MAGIC_PLAN" 2>/dev/null || echo "0")
-    local complete=$(grep -c "^\s*- \[x\]" "$MAGIC_PLAN" 2>/dev/null || echo "0")
+    # NOTE: grep -c exits 1 when there are 0 matches but still prints "0".
+    # Using $(grep ... || echo "0") would produce "0\n0" in that case.
+    # Instead, assign then default to avoid double output.
+    local incomplete; incomplete=$(grep -c "^\s*- \[ \]" "$MAGIC_PLAN" 2>/dev/null) || incomplete=0
+    local complete;   complete=$(grep -c "^\s*- \[x\]"  "$MAGIC_PLAN" 2>/dev/null) || complete=0
 
     if [[ $incomplete -eq 0 ]] && [[ $complete -gt 0 ]]; then
         log_dobby "SUCCESS" "All ${complete} tasks in @magic_plan.md are complete!"
@@ -321,8 +324,8 @@ calculate_completion() {
         return
     fi
 
-    local incomplete=$(grep -c "^\s*- \[ \]" "$MAGIC_PLAN" 2>/dev/null || echo "0")
-    local complete=$(grep -c "^\s*- \[x\]" "$MAGIC_PLAN" 2>/dev/null || echo "0")
+    local incomplete; incomplete=$(grep -c "^\s*- \[ \]" "$MAGIC_PLAN" 2>/dev/null) || incomplete=0
+    local complete;   complete=$(grep -c "^\s*- \[x\]"  "$MAGIC_PLAN" 2>/dev/null) || complete=0
     local total=$((incomplete + complete))
 
     if [[ $total -eq 0 ]]; then
@@ -401,6 +404,24 @@ build_prompt() {
     echo "$prompt"
 }
 
+# Rotate old snap logs, keeping the most recent N
+rotate_snap_logs() {
+    local keep=${DOBBY_SNAP_LOG_KEEP:-20}
+    # List snap logs sorted oldest-first, delete any beyond the keep limit
+    local logs=()
+    while IFS= read -r f; do logs+=("$f"); done < <(
+        ls -t "${LOG_DIR}"/snap_*.log 2>/dev/null
+    )
+    local total=${#logs[@]}
+    if [[ $total -gt $keep ]]; then
+        local to_delete=$(( total - keep ))
+        for (( i=total-1; i>=total-to_delete; i-- )); do
+            rm -f "${logs[$i]}"
+        done
+        log_dobby "INFO" "Rotated snap logs: kept ${keep}, removed ${to_delete}"
+    fi
+}
+
 # Execute Claude Code (the "snap")
 snap_fingers() {
     local output_file="${LOG_DIR}/snap_${loop_count}.log"
@@ -451,7 +472,7 @@ run_autonomous_loop() {
     last_file_hash=$(get_files_hash)
 
     while [[ $loop_count -lt $MAX_LOOPS ]]; do
-        ((loop_count++))
+        loop_count=$((loop_count + 1))
 
         log_dobby "INFO" "━━━━━━━━━━━━━ Loop ${loop_count}/${MAX_LOOPS} ━━━━━━━━━━━━━"
 
@@ -475,6 +496,7 @@ run_autonomous_loop() {
         local output_file="${LOG_DIR}/snap_${loop_count}.log"
         if snap_fingers; then
             update_circuit_breaker "true"
+            rotate_snap_logs
 
             # Check exit conditions
             if check_exit_conditions "$output_file"; then
