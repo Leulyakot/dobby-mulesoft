@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOBBY - Autonomous MuleSoft Elf</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#000;--bg2:#0a0a0f;
+  --card:rgba(255,255,255,0.03);--card-border:rgba(255,255,255,0.06);
+  --cyan:#00f0ff;--purple:#8b5cf6;--green:#00ff88;--red:#ff3366;--amber:#f59e0b;
+  --text:#e8e8e8;--muted:#555;--dim:#333;
+  --font:'SF Mono','Fira Code','JetBrains Mono','Cascadia Code',Consolas,monospace;
+  --glow:0 0 20px rgba(0,240,255,0.15);
+  --radius:8px;
+}
+html{font-size:17px}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font);
+  min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse at 50% 0%,rgba(0,240,255,0.03) 0%,transparent 60%);
+}
+::selection{background:var(--cyan);color:#000}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* HEADER */
+.header{
+  position:sticky;top:0;z-index:100;
+  padding:12px 24px;
+  background:rgba(0,0,0,0.85);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--card-border);
+}
+.header-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.header-left{display:flex;align-items:center;gap:16px}
+.logo{
+  font-size:1.5rem;font-weight:700;letter-spacing:4px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.logo span{font-weight:300;letter-spacing:1px;font-size:0.8rem;opacity:0.6;
+  -webkit-text-fill-color:var(--muted);margin-left:8px}
+.status-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:20px;font-size:0.9rem;
+  background:rgba(255,255,255,0.04);border:1px solid var(--card-border);
+}
+.status-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--muted);transition:background 0.3s;
+}
+.status-dot.working{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.status-dot.complete{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.error{background:var(--red);box-shadow:0 0 8px var(--red)}
+.status-dot.waiting{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.status-dot.idle{background:var(--muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.status-dot.working{animation:pulse 2s ease-in-out infinite}
+.status-info{font-size:0.8rem;color:var(--muted);margin-left:8px}
+
+.header-right{display:flex;align-items:center;gap:8px}
+.btn{
+  padding:8px 16px;border-radius:6px;border:1px solid var(--card-border);
+  background:var(--card);color:var(--text);font-family:var(--font);
+  font-size:0.85rem;cursor:pointer;transition:all 0.2s;
+  display:flex;align-items:center;gap:6px;
+}
+.btn:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12)}
+.btn-primary{border-color:rgba(0,240,255,0.3);color:var(--cyan)}
+.btn-primary:hover{background:rgba(0,240,255,0.1);box-shadow:var(--glow)}
+.btn-danger{border-color:rgba(255,51,102,0.3);color:var(--red)}
+.btn-danger:hover{background:rgba(255,51,102,0.1)}
+.btn:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
+.project-input{
+  padding:8px 14px;border-radius:6px;border:1px solid var(--card-border);
+  background:var(--card);color:var(--text);font-family:var(--font);
+  font-size:0.85rem;width:260px;outline:none;
+}
+.project-input:focus{border-color:rgba(0,240,255,0.3)}
+.loops-input{
+  padding:8px 10px;border-radius:6px;border:1px solid var(--card-border);
+  background:var(--card);color:var(--text);font-family:var(--font);
+  font-size:0.85rem;width:60px;outline:none;text-align:center;
+}
+.loops-input:focus{border-color:rgba(0,240,255,0.3)}
+.input-label{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+/* PROGRESS BAR in header */
+.progress-bar-wrap{
+  height:3px;background:var(--dim);margin-top:10px;border-radius:2px;overflow:hidden;
+}
+.progress-bar{
+  height:100%;border-radius:2px;transition:width 0.6s ease;width:0%;
+  background:linear-gradient(90deg,var(--cyan),var(--purple));
+  box-shadow:0 0 8px rgba(0,240,255,0.3);
+}
+
+/* MAIN */
+.main{max-width:1100px;margin:0 auto;padding:20px 24px 40px}
+
+/* ORDERS SECTION */
+.section{margin-bottom:20px}
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;cursor:pointer;user-select:none;
+}
+.section-title{
+  font-size:0.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);
+}
+.section-toggle{font-size:0.8rem;color:var(--muted);transition:transform 0.2s}
+.editor{
+  width:100%;min-height:200px;padding:14px;
+  background:var(--bg2);color:var(--text);
+  border:1px solid var(--card-border);border-radius:var(--radius);
+  font-family:var(--font);font-size:0.95rem;line-height:1.6;
+  resize:vertical;outline:none;transition:border-color 0.2s;
+}
+.editor:focus{border-color:rgba(0,240,255,0.3)}
+.editor-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.collapsed .editor,.collapsed .editor-actions{display:none}
+
+/* LOG */
+.log-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;
+}
+.log-title{font-size:0.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted)}
+.log-controls{display:flex;align-items:center;gap:12px}
+.log-controls label{font-size:0.8rem;color:var(--muted);display:flex;align-items:center;gap:5px}
+.log-controls input[type=checkbox]{accent-color:var(--cyan)}
+.log-container{
+  background:var(--bg2);border:1px solid var(--card-border);
+  border-radius:var(--radius);padding:12px;
+  height:calc(100vh - 380px);min-height:300px;overflow-y:auto;
+  font-size:0.85rem;line-height:1.7;
+}
+.log-line{white-space:pre-wrap;word-break:break-all}
+.log-line .ts{color:var(--muted)}
+.log-line .lvl-success{color:var(--green)}
+.log-line .lvl-error{color:var(--red)}
+.log-line .lvl-warn{color:var(--amber)}
+.log-line .lvl-snap{color:var(--purple)}
+.log-line .lvl-info{color:var(--cyan)}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);font-size:0.9rem}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{
+  padding:10px 16px;border-radius:var(--radius);font-size:0.9rem;
+  background:rgba(17,17,24,0.95);border:1px solid var(--card-border);
+  box-shadow:0 4px 24px rgba(0,0,0,0.5);
+  animation:slideIn 0.3s ease;max-width:320px;
+}
+.toast.success{border-color:rgba(0,255,136,0.3);color:var(--green)}
+.toast.error{border-color:rgba(255,51,102,0.3);color:var(--red)}
+.toast.info{border-color:rgba(0,240,255,0.3);color:var(--cyan)}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .header-top{flex-wrap:wrap;gap:8px}
+  .main{padding:16px}
+  .project-input{width:160px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-top">
+    <div class="header-left">
+      <div class="logo">DOBBY<span>MuleSoft Elf</span></div>
+      <div class="status-pill">
+        <div class="status-dot idle" id="statusDot"></div>
+        <span id="statusText">Idle</span>
+      </div>
+      <span class="status-info" id="statusInfo"></span>
+    </div>
+    <div class="header-right">
+      <input type="text" class="project-input" id="projectPath" placeholder="Project path..." title="Path to your MuleSoft project" onkeydown="if(event.key==='Enter')loadProject()">
+      <button class="btn" onclick="loadProject()">Load</button>
+      <span class="input-label">Loops</span>
+      <input type="number" class="loops-input" id="maxLoops" value="100" min="1" max="9999" title="Maximum development loops">
+      <button class="btn btn-primary" id="btnStart" onclick="startDobby()">&#9654; Start</button>
+      <button class="btn btn-danger" id="btnStop" onclick="stopDobby()" disabled>&#9632; Stop</button>
+    </div>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ORDERS (collapsible) -->
+  <div class="section" id="ordersSection">
+    <div class="section-header" onclick="toggleOrders()">
+      <span class="section-title">Master Orders</span>
+      <span class="section-toggle" id="ordersToggle">&#9660;</span>
+    </div>
+    <textarea class="editor" id="ordersEditor" placeholder="# MASTER_ORDERS.md&#10;&#10;Write your integration specifications here..."></textarea>
+    <div class="editor-actions">
+      <button class="btn" onclick="loadOrders()">Reload</button>
+      <button class="btn btn-primary" onclick="saveOrders()">Save</button>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="section">
+    <div class="log-header">
+      <span class="log-title">Log</span>
+      <div class="log-controls">
+        <label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label>
+        <button class="btn" onclick="clearLogs()" style="padding:4px 10px;font-size:0.75rem">Clear</button>
+      </div>
+    </div>
+    <div class="log-container" id="logContainer">
+      <div class="empty-state">Start Dobby to see logs here.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ── State ──
+let polling = null;
+let isRunning = false;
+let lastLogLength = 0;
+let projectLoaded = false;
+
+// ── Toast ──
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => { el.style.animation = 'fadeOut 0.3s ease forwards'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ── API ──
+async function api(path, opts = {}) {
+  try {
+    const res = await fetch(path, opts);
+    if (!res.ok) throw new Error(res.statusText);
+    return await res.json();
+  } catch (e) {
+    console.error('API error:', path, e);
+    return null;
+  }
+}
+
+// ── Orders toggle ──
+function toggleOrders() {
+  const s = document.getElementById('ordersSection');
+  const t = document.getElementById('ordersToggle');
+  s.classList.toggle('collapsed');
+  t.innerHTML = s.classList.contains('collapsed') ? '&#9654;' : '&#9660;';
+}
+
+// ── Load Project ──
+async function loadProject() {
+  const path = document.getElementById('projectPath').value.trim();
+  if (!path) { toast('Enter a project path first', 'error'); return false; }
+  const data = await api('/api/load', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project_path: path })
+  });
+  if (data && data.ok) {
+    projectLoaded = true;
+    toast('Project loaded', 'success');
+    loadOrders();
+    return true;
+  } else {
+    toast(data?.error || 'Failed to load project', 'error');
+    return false;
+  }
+}
+
+async function ensureProjectLoaded() {
+  if (projectLoaded) return true;
+  const path = document.getElementById('projectPath').value.trim();
+  if (!path) { toast('Enter a project path and click Load first', 'error'); return false; }
+  return await loadProject();
+}
+
+// ── Start / Stop ──
+async function startDobby() {
+  const path = document.getElementById('projectPath').value.trim();
+  if (!path) { toast('Enter a project path first', 'error'); return; }
+  const maxLoops = parseInt(document.getElementById('maxLoops').value) || 100;
+  const data = await api('/api/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project_path: path, max_loops: maxLoops })
+  });
+  if (data && data.ok) {
+    projectLoaded = true;
+    toast('Dobby is snapping!', 'success');
+    isRunning = true;
+    updateControls();
+    startPolling();
+    // collapse orders to focus on log
+    document.getElementById('ordersSection').classList.add('collapsed');
+    document.getElementById('ordersToggle').innerHTML = '&#9654;';
+  } else {
+    toast(data?.error || 'Failed to start', 'error');
+  }
+}
+
+async function stopDobby() {
+  const data = await api('/api/stop', { method: 'POST' });
+  if (data && data.ok) {
+    toast('Dobby has stopped', 'info');
+    isRunning = false;
+    updateControls();
+  } else {
+    toast(data?.error || 'Failed to stop', 'error');
+  }
+}
+
+function updateControls() {
+  document.getElementById('btnStart').disabled = isRunning;
+  document.getElementById('btnStop').disabled = !isRunning;
+}
+
+// ── Polling ──
+function startPolling() {
+  if (polling) return;
+  polling = setInterval(fetchAll, 2000);
+  fetchAll();
+}
+
+async function fetchAll() {
+  await Promise.all([fetchStatus(), fetchLogs()]);
+}
+
+// ── Status ──
+async function fetchStatus() {
+  const data = await api('/api/status');
+  if (!data) return;
+
+  const s = data.status || 'idle';
+  document.getElementById('statusDot').className = 'status-dot ' + s;
+  document.getElementById('statusText').textContent = capitalize(s);
+
+  // Compact info line
+  const loop = data.loop || 0;
+  const maxL = data.max_loops || 100;
+  const pct = data.progress || 0;
+  document.getElementById('statusInfo').textContent =
+    s !== 'idle' ? 'Loop ' + loop + '/' + maxL + '  |  ' + pct + '%' : '';
+
+  document.getElementById('progressBar').style.width = pct + '%';
+
+  if (s === 'complete' && isRunning) {
+    isRunning = false;
+    updateControls();
+    toast('Dobby has completed all tasks!', 'success');
+  }
+  if (s === 'error' && isRunning) {
+    isRunning = false;
+    updateControls();
+  }
+}
+
+// ── Logs ──
+async function fetchLogs() {
+  const data = await api('/api/logs');
+  if (!data || !data.lines) return;
+
+  const container = document.getElementById('logContainer');
+  if (data.lines.length === 0) return;
+
+  if (data.lines.length !== lastLogLength) {
+    lastLogLength = data.lines.length;
+    container.innerHTML = data.lines.map(formatLogLine).join('');
+    if (document.getElementById('autoScroll').checked) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+}
+
+function formatLogLine(line) {
+  let cls = '';
+  if (/\[SUCCESS\]/i.test(line)) cls = 'lvl-success';
+  else if (/\[ERROR\]/i.test(line)) cls = 'lvl-error';
+  else if (/\[WARN\]/i.test(line)) cls = 'lvl-warn';
+  else if (/\[SNAP\]/i.test(line)) cls = 'lvl-snap';
+  else if (/\[INFO\]/i.test(line)) cls = 'lvl-info';
+
+  const tsMatch = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
+  if (tsMatch) {
+    const rest = line.slice(tsMatch[1].length);
+    return '<div class="log-line"><span class="ts">' + esc(tsMatch[1]) + '</span><span class="' + cls + '">' + esc(rest) + '</span></div>';
+  }
+  return '<div class="log-line"><span class="' + cls + '">' + esc(line) + '</span></div>';
+}
+
+function clearLogs() {
+  document.getElementById('logContainer').innerHTML = '';
+  lastLogLength = 0;
+}
+
+// ── Orders ──
+async function loadOrders() {
+  const data = await api('/api/orders');
+  if (data && data.content !== undefined) {
+    document.getElementById('ordersEditor').value = data.content;
+  }
+}
+
+async function saveOrders() {
+  if (!(await ensureProjectLoaded())) return;
+  const content = document.getElementById('ordersEditor').value;
+  const data = await api('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content })
+  });
+  if (data && data.ok) {
+    toast('Orders saved', 'success');
+  } else {
+    toast(data?.error || 'Failed to save', 'error');
+  }
+}
+
+// ── Helpers ──
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function capitalize(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : '';
+}
+
+// ── Init ──
+(async function init() {
+  const data = await api('/api/status');
+  if (data && data.status && data.status !== 'idle') {
+    isRunning = data.status === 'working';
+    updateControls();
+    startPolling();
+  }
+  if (data && data.project_path) {
+    document.getElementById('projectPath').value = data.project_path;
+    projectLoaded = true;
+    loadOrders();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Local workspace / project data (mounted as a volume at runtime)
+workspace/
+my-integration/
+
+# Logs
+*.log
+dobby_server.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
